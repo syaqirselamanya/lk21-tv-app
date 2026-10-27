@@ -6,14 +6,15 @@ import org.jsoup.nodes.Document
 import org.jsoup.nodes.Element
 import java.net.HttpURLConnection
 import java.net.URL
-import java.net.URLEncoder
 
 data class MediaItem(
     val title: String,
     val url: String,
     val posterUrl: String,
     val rating: String,
-    val episodeOrQuality: String
+    val episodeOrQuality: String,
+    val genre: String = "",
+    val isSeries: Boolean = false
 )
 
 data class EpisodeItem(
@@ -31,9 +32,18 @@ data class MediaDetail(
     val url: String,
     val posterUrl: String,
     val plot: String,
+    val rating: String,
+    val quality: String,
     val episodes: List<EpisodeItem>,
     val mirrors: List<MirrorItem>,
     val mainEmbedUrl: String?
+)
+
+data class ResolvedStream(
+    val streamUrl: String,
+    val isDirectHls: Boolean,
+    val referer: String,
+    val serverName: String
 )
 
 object LK21Scraper {
@@ -68,6 +78,23 @@ object LK21Scraper {
         return conn.inputStream.bufferedReader().use { it.readText() }
     }
 
+    private fun postFormJson(url: String, formBody: String, referer: String): String {
+        val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            connectTimeout = 12000
+            readTimeout = 12000
+            requestMethod = "POST"
+            doOutput = true
+            setRequestProperty("User-Agent", USER_AGENT)
+            setRequestProperty("Referer", referer)
+            setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
+            setRequestProperty("Accept", "application/json, text/plain, */*")
+        }
+        conn.outputStream.use { out ->
+            out.write(formBody.toByteArray(Charsets.UTF_8))
+        }
+        return conn.inputStream.bufferedReader().use { it.readText() }
+    }
+
     private fun fixUrl(baseUrl: String, raw: String): String {
         val clean = raw.trim()
         if (clean.isEmpty()) return ""
@@ -80,7 +107,6 @@ object LK21Scraper {
     }
 
     fun fetchCatalog(baseUrl: String, pathOrUrl: String, page: Int = 1): List<MediaItem> {
-        // Jika carian (?s=...), guna JSON API carian rasmi LK21 (gudangvape.com/search.php)
         if (pathOrUrl.contains("?s=")) {
             val query = pathOrUrl.substringAfter("?s=").substringBefore("&")
             val searchItems = fetchSearchCatalog(baseUrl, query, page)
@@ -97,8 +123,6 @@ object LK21Scraper {
         }
 
         val doc = fetchDoc(fullUrl, baseUrl)
-
-        // Struktur kad rasmi tv12.lk21official.cc menggunakan tag <article>
         val cards = doc.select("article")
         val list = mutableListOf<MediaItem>()
 
@@ -142,8 +166,9 @@ object LK21Scraper {
                 val rating = obj.optString("rating", "").takeIf { it != "0" } ?: ""
                 val quality = obj.optString("quality", "")
                 val episode = obj.optString("episode", "")
+                val isSeries = episode.isNotBlank() && episode != "0"
                 val badge = when {
-                    episode.isNotBlank() && episode != "0" -> "EPS $episode"
+                    isSeries -> "EPS $episode"
                     quality.isNotBlank() -> quality
                     else -> "HD"
                 }
@@ -154,7 +179,8 @@ object LK21Scraper {
                         url = fixUrl(baseUrl, "/$slug"),
                         posterUrl = posterUrl,
                         rating = rating,
-                        episodeOrQuality = badge
+                        episodeOrQuality = badge,
+                        isSeries = isSeries
                     )
                 )
             }
@@ -190,7 +216,6 @@ object LK21Scraper {
             rawTitle
         }
 
-        // Ekstrak gambar poster daripada <picture><source srcset> atau <img src / data-src>
         var rawPoster = ""
         val jpegSource = card.selectFirst("picture source[type='image/jpeg'], picture source")
         if (jpegSource != null) {
@@ -210,7 +235,11 @@ object LK21Scraper {
         val epText = card.selectFirst("span.episode")?.text()?.trim() ?: ""
         val labelText = card.selectFirst("span.label")?.text()?.trim() ?: ""
         val durationText = card.selectFirst("span.duration")?.text()?.trim() ?: ""
+        val genreText = card.selectFirst("div.genre, meta[itemprop='genre']")?.let {
+            if (it.tagName() == "meta") it.attr("content") else it.text()
+        }?.trim() ?: ""
 
+        val isSeries = epText.isNotBlank() || durationText.startsWith("S.", ignoreCase = true)
         val badge = when {
             epText.isNotBlank() -> epText
             labelText.isNotBlank() -> labelText
@@ -223,7 +252,9 @@ object LK21Scraper {
             url = href,
             posterUrl = posterUrl,
             rating = rating,
-            episodeOrQuality = badge
+            episodeOrQuality = badge,
+            genre = genreText,
+            isSeries = isSeries
         )
     }
 
@@ -231,7 +262,6 @@ object LK21Scraper {
         var currentUrl = pageUrl
         var doc = fetchDoc(currentUrl, baseUrl)
 
-        // Jika halaman ini ialah jambatan pengalihan Series (contoh ke dramamu.lk21.de)
         val redirectBtn = doc.selectFirst("a#openNow")
         if (redirectBtn != null) {
             val targetSeriesUrl = redirectBtn.attr("href").trim()
@@ -266,7 +296,10 @@ object LK21Scraper {
             ?: doc.selectFirst("meta[name='description']")?.attr("content")
             ?: "Tiada sinopsis tersedia."
 
-        // 1. Kumpul senarai episod dari JSON <script id="season-data"> (untuk Series/Drama LK21)
+        val rating = doc.selectFirst("span.rating-number")?.text()?.trim() ?: ""
+        val quality = doc.select("div.info-tag span").joinToString(" • ") { it.text().trim() }.ifBlank { "HD 1080p" }
+
+        // 1. Senarai Episod (jika Series)
         val episodes = mutableListOf<EpisodeItem>()
         val seasonJsonEl = doc.selectFirst("script#season-data")
         if (seasonJsonEl != null) {
@@ -284,7 +317,7 @@ object LK21Scraper {
                         if (slug.isNotBlank()) {
                             episodes.add(
                                 EpisodeItem(
-                                    label = "Season $sNum • Episod $epNum",
+                                    label = "S$sNum : Episod $epNum",
                                     url = "$currentOrigin/$slug"
                                 )
                             )
@@ -295,7 +328,6 @@ object LK21Scraper {
             }
         }
 
-        // Fallback jika senarai episod berada dalam tag HTML biasa
         if (episodes.isEmpty()) {
             doc.select("ul.episode-list a, div.episode-list a, ul.episodelist a").forEachIndexed { idx, el ->
                 val epHref = fixUrl(currentOrigin, el.attr("href"))
@@ -308,9 +340,9 @@ object LK21Scraper {
             }
         }
 
-        // 2. Kumpul senarai pelayan video (GANTI PLAYER: P2P, CAST, HYDRAX, dll.)
+        // 2. Senarai Pelayan Video (P2P, CAST, HYDRAX)
         val mirrors = mutableListOf<MirrorItem>()
-        doc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a, div.player-server a").forEach { el ->
+        doc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").forEach { el ->
             val rawMirror = el.attr("data-url").ifBlank { el.attr("value").ifBlank { el.attr("href") } }
             if (rawMirror.isNotBlank() && !rawMirror.startsWith("#") && !rawMirror.startsWith("javascript")) {
                 val cleanMirror = fixUrl(currentOrigin, rawMirror)
@@ -323,8 +355,7 @@ object LK21Scraper {
             }
         }
 
-        // 3. Cari iframe#main-player
-        val mainIframe = doc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe, div.player-embed iframe")
+        val mainIframe = doc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe")
         val rawIframeSrc = mainIframe?.let { it.attr("src").ifBlank { it.attr("data-src") } } ?: ""
         val mainEmbedUrl = if (rawIframeSrc.isNotBlank()) {
             fixUrl(currentOrigin, rawIframeSrc)
@@ -332,14 +363,80 @@ object LK21Scraper {
             mirrors.firstOrNull()?.embedUrl
         }
 
+        if (mainEmbedUrl != null && mirrors.none { it.embedUrl.substringBefore("?") == mainEmbedUrl.substringBefore("?") }) {
+            mirrors.add(0, MirrorItem("UTAMA (P2P)", mainEmbedUrl))
+        }
+
         return MediaDetail(
             title = title,
             url = currentUrl,
             posterUrl = posterUrl,
             plot = plot,
+            rating = rating,
+            quality = quality,
             episodes = episodes,
             mirrors = mirrors,
             mainEmbedUrl = mainEmbedUrl
+        )
+    }
+
+    /**
+     * Nyah-bungkus (unwrap) URL videonode.de terus kepada strim HLS (.m3u8) atau URL pemain tulen
+     * supaya tidak dihalakan (redirect) ke laman web lk21.de!
+     */
+    fun resolveStream(embedUrl: String, serverName: String = "P2P"): ResolvedStream {
+        try {
+            val cleanUrl = embedUrl.substringBefore("?")
+            // Contoh: https://videonode.de/iframe3/p2p/vl4biPHM2Q871_aFIsMpeA
+            val regex = Regex("https?://([^/]+)/iframe\\d*/([^/]+)/([^/?#]+)")
+            val match = regex.find(cleanUrl)
+            if (match != null) {
+                val nodeDomain = match.groupValues[1]
+                val hostType = match.groupValues[2]
+                val videoId = match.groupValues[3]
+
+                val apiUrl = "https://$nodeDomain/api.php"
+                val apiRes = postFormJson(apiUrl, "host=$hostType&id=$videoId", embedUrl)
+                val realEmbedUrl = JSONObject(apiRes).optString("embedUrl", "")
+
+                if (realEmbedUrl.isNotBlank()) {
+                    // Jika ia adalah pelayan playcdn.de (P2P), ekstrak terus fail .m3u8 daripada /verify/{slug}!
+                    if (realEmbedUrl.contains("playcdn.")) {
+                        val u = URL(realEmbedUrl)
+                        val hostOrigin = "${u.protocol}://${u.host}"
+                        val slug = u.path.trim('/').substringAfterLast('/')
+                        if (slug.isNotBlank()) {
+                            val verifyJson = fetchJson("$hostOrigin/verify/$slug", realEmbedUrl)
+                            val verifyObj = JSONObject(verifyJson)
+                            val m3u8Url = verifyObj.optString("fileUrl", "")
+                            if (m3u8Url.isNotBlank()) {
+                                return ResolvedStream(
+                                    streamUrl = m3u8Url,
+                                    isDirectHls = true,
+                                    referer = "$hostOrigin/",
+                                    serverName = serverName
+                                )
+                            }
+                        }
+                    }
+
+                    // Untuk pelayan lain (contoh CAST -> mfw09.org, HYDRAX -> abysscdn.com)
+                    return ResolvedStream(
+                        streamUrl = realEmbedUrl,
+                        isDirectHls = false,
+                        referer = "https://$nodeDomain/",
+                        serverName = serverName
+                    )
+                }
+            }
+        } catch (_: Exception) {
+        }
+
+        return ResolvedStream(
+            streamUrl = embedUrl,
+            isDirectHls = embedUrl.contains(".m3u8"),
+            referer = "https://tv12.lk21official.cc/",
+            serverName = serverName
         )
     }
 }
