@@ -28,7 +28,7 @@ class MainActivity : Activity() {
 
     private val executor = Executors.newFixedThreadPool(6)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val imageCache = object : LruCache<String, Bitmap>(20 * 1024 * 1024) {
+    private val imageCache = object : LruCache<String, Bitmap>(24 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
@@ -36,7 +36,7 @@ class MainActivity : Activity() {
     private lateinit var statusText: TextView
     private lateinit var progressBar: ProgressBar
     private var currentPage = 1
-    private var currentPath = "/"
+    private var currentPath = "/latest"
 
     private val prefs by lazy { getSharedPreferences("lk21_tv_prefs", Context.MODE_PRIVATE) }
 
@@ -44,15 +44,19 @@ class MainActivity : Activity() {
         get() = prefs.getString("base_url", "https://tv12.lk21official.cc") ?: "https://tv12.lk21official.cc"
         set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
 
+    // Laluan kategori rasmi tv12.lk21official.cc
     private val categories = listOf(
-        "🔥 Utama" to "/",
-        "🆕 Terbaru" to "/latest/",
-        "⭐ Populer" to "/populer/",
-        "🇰🇷 Korea" to "/country/south-korea/",
-        "🇨🇳 China" to "/country/china/",
-        "🇺🇸 Barat" to "/country/united-states/",
-        "⚔️ Action" to "/genre/action/",
-        "🚀 Sci-Fi" to "/genre/scifi/"
+        "🆕 Terbaru" to "/latest",
+        "🔥 Beranda" to "/",
+        "🏆 Unggulan" to "/top-movie-today",
+        "⭐ Populer" to "/populer",
+        "📺 Series" to "/latest-series",
+        "🎬 2026" to "/year/2026",
+        "🇺🇸 Barat" to "/country/usa",
+        "🇰🇷 Korea" to "/country/south-korea",
+        "⚔️ Action" to "/genre/action",
+        "👻 Horror" to "/genre/horror",
+        "🚀 Sci-Fi" to "/genre/sci-fi"
     )
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -180,7 +184,7 @@ class MainActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
             isFocusable = true
             isFocusableInTouchMode = false
-            background = createFocusableBg("#1E293B", "#E11D48")
+            background = createSolidBg("#1E293B", "#334155", 1)
             setPadding(dp(14), dp(8), dp(14), dp(8))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -201,21 +205,16 @@ class MainActivity : Activity() {
 
     private fun loadCatalog(path: String, page: Int) {
         progressBar.visibility = View.VISIBLE
-        val pagedPath = if (page <= 1 || path.contains("?s=")) {
-            path
-        } else {
-            "${path.trimEnd('/')}/page/$page/"
-        }
-        statusText.text = "Memuatkan: $baseUrl$pagedPath (Halaman $page)..."
+        statusText.text = "Memuatkan: $baseUrl$path (Halaman $page)..."
         gridContainer.removeAllViews()
 
         executor.execute {
             try {
-                val items = LK21Scraper.fetchCatalog(baseUrl, pagedPath)
+                val items = LK21Scraper.fetchCatalog(baseUrl, path, page)
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     if (items.isEmpty()) {
-                        statusText.text = "Tiada cerita ditemui. Cuba buka 'Mod Web (AdBlock)' atau semak Domain."
+                        statusText.text = "Tiada cerita ditemui pada halaman ini. Cuba kategori lain atau Mod Web."
                     } else {
                         statusText.text = "Menunjukkan ${items.size} cerita • Halaman $page • Bebas Iklan"
                         renderCards(items)
@@ -258,7 +257,7 @@ class MainActivity : Activity() {
                     v.scaleX = if (hasFocus) 1.04f else 1.0f
                     v.scaleY = if (hasFocus) 1.04f else 1.0f
                 }
-                setOnClickListener { onCardSelected(item) }
+                setOnClickListener { onCardSelected(item.title, item.url) }
             }
 
             val posterContainer = FrameLayout(this).apply {
@@ -337,13 +336,13 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun onCardSelected(item: MediaItem) {
+    private fun onCardSelected(title: String, targetPageUrl: String) {
         progressBar.visibility = View.VISIBLE
-        statusText.text = "Memuatkan senarai episod & pemain untuk: ${item.title}..."
+        statusText.text = "Memuatkan pautan pemain untuk: $title..."
 
         executor.execute {
             try {
-                val detail = LK21Scraper.fetchDetail(baseUrl, item.url)
+                val detail = LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     statusText.text = "Sedia: ${detail.title}"
@@ -352,40 +351,47 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    // Jika gagal ekstrak, terus buka halaman dalam pemain tanpa iklan
-                    openPlayer(item.url, item.title, isDirectWeb = false)
+                    openPlayer(targetPageUrl, title, isDirectWeb = false)
                 }
             }
         }
     }
 
     private fun showDetailDialog(detail: MediaDetail) {
-        val options = mutableListOf<Pair<String, String>>()
+        val actions = mutableListOf<Pair<String, () -> Unit>>()
 
-        // Pilihan 1: Terus mainkan halaman/iframe utama
-        val primaryTarget = detail.mainEmbedUrl ?: detail.url
-        options.add("▶️ Tonton Terus (Pemain Utama Tanpa Iklan)" to primaryTarget)
+        // 1. Jika ada iframe pemain terus (Movie atau Episod)
+        if (!detail.mainEmbedUrl.isNullOrBlank()) {
+            actions.add("▶️ Tonton Sekarang (Pemain Utama Tanpa Iklan)" to {
+                openPlayer(detail.mainEmbedUrl, detail.title, isDirectWeb = false)
+            })
+        }
 
-        // Pilihan 2: Senarai Pelayan (Mirror)
+        // 2. Senarai pelayan (P2P, CAST, HYDRAX)
         detail.mirrors.forEach { mirror ->
-            options.add("🖥️ Pelayan: ${mirror.name}" to mirror.embedUrl)
+            actions.add("🖥️ Pelayan ${mirror.name} (Tanpa Iklan)" to {
+                openPlayer(mirror.embedUrl, "${detail.title} (${mirror.name})", isDirectWeb = false)
+            })
         }
 
-        // Pilihan 3: Senarai Episod (untuk Drama/Series)
+        // 3. Senarai episod (jika ini Series/Drama)
         detail.episodes.forEach { ep ->
-            options.add("🎞️ ${ep.label}" to ep.url)
+            actions.add("🎞️ Pilih ${ep.label}" to {
+                onCardSelected("${detail.title} - ${ep.label}", ep.url)
+            })
         }
 
-        options.add("🌐 Buka Halaman Penuh (Mod AdBlock TV)" to detail.url)
+        // 4. Pilihan buka halaman rasmi dengan AdBlock
+        actions.add("🌐 Buka Halaman Asal (Mod AdBlock TV)" to {
+            openPlayer(detail.url, detail.title, isDirectWeb = false)
+        })
 
-        val labels = options.map { it.first }.toTypedArray()
+        val labels = actions.map { it.first }.toTypedArray()
 
         AlertDialog.Builder(this)
             .setTitle(detail.title)
             .setItems(labels) { _, which ->
-                val chosenUrl = options[which].second
-                val chosenLabel = options[which].first
-                openPlayer(chosenUrl, "${detail.title} - $chosenLabel", isDirectWeb = false)
+                actions[which].second.invoke()
             }
             .setNegativeButton("Tutup", null)
             .show()
@@ -403,17 +409,17 @@ class MainActivity : Activity() {
 
     private fun showSearchDialog() {
         val input = EditText(this).apply {
-            hint = "Contoh: Squid Game, Moving, Marvel..."
+            hint = "Contoh: Spider-Man, Venom, Doctor X..."
             setSingleLine(true)
         }
         AlertDialog.Builder(this)
-            .setTitle("🔍 Cari Drama / Siri TV")
+            .setTitle("🔍 Cari Filem / Series di LK21")
             .setView(input)
             .setPositiveButton("Cari") { _, _ ->
                 val q = input.text.toString().trim()
                 if (q.isNotEmpty()) {
                     currentPage = 1
-                    currentPath = "/?s=${URLEncoder.encode(q, "UTF-8")}"
+                    currentPath = "/search?s=${URLEncoder.encode(q, "UTF-8")}"
                     loadCatalog(currentPath, currentPage)
                 }
             }
@@ -427,7 +433,7 @@ class MainActivity : Activity() {
             setSingleLine(true)
         }
         AlertDialog.Builder(this)
-            .setTitle("⚙️ Tetapan Domain LK21 / NontonDrama")
+            .setTitle("⚙️ Tetapan Domain LK21")
             .setMessage("Jika domain tv12 bertukar (contoh ke tv13), kemas kini URL di bawah:")
             .setView(input)
             .setPositiveButton("Simpan & Muat Semula") { _, _ ->
@@ -483,10 +489,6 @@ class MainActivity : Activity() {
                 setStroke(dp(strokeWidthDp), Color.parseColor(strokeHex))
             }
         }
-    }
-
-    private fun createFocusableBg(normalHex: String, focusedHex: String): GradientDrawable {
-        return createSolidBg(normalHex, "#334155", 1)
     }
 
     private fun dp(value: Int): Int {
