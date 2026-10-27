@@ -58,7 +58,6 @@ class PlayerActivity : Activity() {
             )
         }
 
-        // Bar Kawalan Atas (Boleh disembunyikan semasa menonton)
         topOverlayBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -114,7 +113,7 @@ class PlayerActivity : Activity() {
         settings.domStorageEnabled = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = false
-        settings.setSupportMultipleWindows(true) // Tangkap & matikan semua cubaan pop-up
+        settings.setSupportMultipleWindows(true)
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.userAgentString =
             "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
@@ -135,7 +134,6 @@ class PlayerActivity : Activity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return true
-                // Sekat redirect keluar ke laman iklan / judi
                 if (!AdBlocker.isAllowedNavigation(url, baseUrl)) {
                     return true
                 }
@@ -144,16 +142,17 @@ class PlayerActivity : Activity() {
 
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
-                // Suntik CSS & JS AdBlocker
                 view?.evaluateJavascript(AdBlocker.CLEAN_PAGE_JS, null)
                 if (!isDirectWeb) {
                     isolateVideoPlayerJs()
+                    topOverlayBar.postDelayed({
+                        topOverlayBar.visibility = View.GONE
+                    }, 3500)
                 }
             }
         }
 
         webView.webChromeClient = object : WebChromeClient() {
-            // Sekat 100% semua tetingkap pop-up baru
             override fun onCreateWindow(
                 view: WebView?,
                 isDialog: Boolean,
@@ -195,7 +194,7 @@ class PlayerActivity : Activity() {
         val script = """
             (function() {
                 ${AdBlocker.CLEAN_PAGE_JS}
-                var player = document.querySelector('#player-iframe, .player-embed iframe, #loadProviders iframe, iframe[src*="player"], iframe[src*="embed"], video');
+                var player = document.querySelector('#main-player, #player-iframe, .main-player iframe, .player-embed iframe, iframe[src*="videonode"], iframe[src*="player"], video');
                 if (player) {
                     player.scrollIntoView({ behavior: 'smooth', block: 'center' });
                 }
