@@ -36,6 +36,8 @@ object AdBlocker {
         "revcontent.com",
         "adskeeper.co.uk",
         "donasi.assetsy.de",
+        "yellowishgather.com",
+        "social.santai.lol",
         "adsby",
         "adserver",
         "adsystem",
@@ -62,44 +64,6 @@ object AdBlocker {
         "seiklasnya.css"
     )
 
-    // Domain pemain video (mirror) & CDN rasmi LK21 yang dibenarkan
-    private val ALLOWED_PLAYER_KEYWORDS = listOf(
-        "lk21",
-        "nontondrama",
-        "layarkaca",
-        "layanfilem",
-        "dunia21",
-        "videonode",
-        "assetsy.de",
-        "dadadidi",
-        "gudangvape",
-        "hydrax",
-        "abysscdn",
-        "iamcdn",
-        "turbovip",
-        "emturbovid",
-        "turbovid",
-        "cast",
-        "p2p",
-        "hownetwork",
-        "player",
-        "embed",
-        "iframe",
-        "filemoon",
-        "dood",
-        "streamtape",
-        "mixdrop",
-        "mp4upload",
-        "vidhide",
-        "filelions",
-        "f16px",
-        "cdn",
-        "cloudflare",
-        "googleapis",
-        "gstatic",
-        "cdnjs"
-    )
-
     fun shouldBlockRequest(request: WebResourceRequest): Boolean {
         val url = request.url.toString().lowercase()
         val host = request.url.host?.lowercase() ?: return false
@@ -112,7 +76,6 @@ object AdBlocker {
             return true
         }
 
-        // Sekat sepanduk iklan .gif kecuali poster rasmi
         if (url.endsWith(".gif") && !host.contains("poster.assetsy.de")) {
             return true
         }
@@ -120,20 +83,39 @@ object AdBlocker {
         return false
     }
 
-    fun isAllowedNavigation(url: String, currentBaseHost: String): Boolean {
+    // Dalam mod pemain video, sekat sebarang cubaan redirect balik ke laman utama lk21.de
+    fun isAllowedPlayerNavigation(url: String): Boolean {
         val parsed = Uri.parse(url)
         val host = parsed.host?.lowercase() ?: return false
-        val baseClean = Uri.parse(currentBaseHost).host?.lowercase() ?: ""
 
-        if (baseClean.isNotEmpty() && host.contains(baseClean.removePrefix("tv12.").removePrefix("www."))) {
-            return true
+        // Sekat redirect paksa ke laman web lk21.de apabila dalam pemain video
+        if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official")) {
+            return false
         }
 
         if (BLOCKED_HOST_KEYWORDS.any { host.contains(it.lowercase()) }) {
             return false
         }
 
-        return ALLOWED_PLAYER_KEYWORDS.any { host.contains(it.lowercase()) || url.lowercase().contains(it.lowercase()) }
+        val allowedHosts = listOf(
+            "playcdn.de",
+            "videonode.de",
+            "mfw09.org",
+            "hydrax",
+            "abysscdn",
+            "iamcdn",
+            "turbovip",
+            "emturbovid",
+            "turbovid",
+            "cast",
+            "p2p",
+            "hownetwork",
+            "filemoon",
+            "dood",
+            "streamtape",
+            "vidhide"
+        )
+        return allowedHosts.any { host.contains(it) }
     }
 
     fun createEmptyResponse(): WebResourceResponse {
@@ -144,41 +126,32 @@ object AdBlocker {
         )
     }
 
-    // Skrip CSS & JS untuk membuang #adContainer (iklan video LK21), sepanduk & pop-up
-    val CLEAN_PAGE_JS = """
+    val CLEAN_EMBED_JS = """
         (function() {
             window.open = function() { return null; };
-            
-            var styleId = 'lk21-tv-adblock-style';
+            var adOverlay = document.getElementById('uyeouyeo');
+            if (adOverlay) adOverlay.remove();
+            var adContainer = document.getElementById('adContainer');
+            if (adContainer) adContainer.remove();
+            var styleId = 'lk21-clean-embed-style';
             if (!document.getElementById(styleId)) {
-                var style = document.createElement('style');
-                style.id = styleId;
-                style.innerHTML = `
-                    #adContainer, #videoAd, #adsLink, #skipAds,
-                    .banner, .banners, .iklan, .ads, .ad-box, .ad-container,
-                    .header-ads, .footer-ads, .floating-ads, .popup-ads,
-                    div[id*="iklan"], div[class*="iklan"],
-                    div[id*="banner"], div[class*="banner"],
-                    div[id*="ads-"], div[class*="ads-"],
-                    a[href*="bit.ly"], a[href*="rebrand.ly"], a[href*="cutt.ly"],
-                    img[src*=".gif"], ins.adsbygoogle, iframe[src*="ads"] {
+                var s = document.createElement('style');
+                s.id = styleId;
+                s.innerHTML = `
+                    #uyeouyeo, #adContainer, #videoAd, #adsLink, .banner, .iklan, .ads, a[target="_blank"] {
                         display: none !important;
                         visibility: hidden !important;
-                        height: 0 !important;
-                        width: 0 !important;
                         pointer-events: none !important;
                     }
-                    #main-player {
-                        display: block !important;
-                        visibility: visible !important;
-                        z-index: 50 !important;
+                    body, html {
+                        background: #000 !important;
+                        margin: 0 !important;
+                        padding: 0 !important;
+                        overflow: hidden !important;
                     }
                 `;
-                document.head.appendChild(style);
+                document.head.appendChild(s);
             }
-
-            var adBox = document.getElementById('adContainer');
-            if (adBox) adBox.remove();
         })();
     """.trimIndent()
 }
