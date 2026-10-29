@@ -1,6 +1,6 @@
 {
-  "name": "LK21 TV Official Cloudstream Repo",
-  "description": "Repository Cloudstream untuk LK21 / NontonDrama TV Series & Movies (Bebas Iklan)",
+  "name": "CiteraLoka Official Cloudstream Repo",
+  "description": "Repository CiteraLoka untuk TV Series & Movies (Bebas Iklan)",
   "manifestVersion": 1,
   "pluginLists": [
     "https://raw.githubusercontent.com/syaqirselamanya/lk21-tv-app/builds/plugins.json"
