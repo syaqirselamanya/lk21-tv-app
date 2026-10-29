@@ -109,8 +109,26 @@ class MainActivity : Activity() {
         }
 
         val brandLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
             setPadding(0, 0, dp(24), 0)
+        }
+
+        // Ikon Rasmi CiteraLoka (Batik Gold 'C')
+        val iconResId = resources.getIdentifier("ic_tv_logo", "drawable", packageName)
+        if (iconResId != 0) {
+            val brandIcon = ImageView(this).apply {
+                setImageResource(iconResId)
+                scaleType = ImageView.ScaleType.FIT_CENTER
+                layoutParams = LinearLayout.LayoutParams(dp(36), dp(36)).apply {
+                    rightMargin = dp(12)
+                }
+            }
+            brandLayout.addView(brandIcon)
+        }
+
+        val brandTextGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
         }
 
         val brandLogo = TextView(this).apply {
@@ -128,8 +146,9 @@ class MainActivity : Activity() {
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.25f
         }
-        brandLayout.addView(brandLogo)
-        brandLayout.addView(brandSub)
+        brandTextGroup.addView(brandLogo)
+        brandTextGroup.addView(brandSub)
+        brandLayout.addView(brandTextGroup)
         topBar.addView(brandLayout)
 
         // Butang Kategori (Box & Name Sahaja)
