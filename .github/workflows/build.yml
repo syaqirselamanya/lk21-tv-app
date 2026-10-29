@@ -35,28 +35,33 @@ jobs:
 
       - name: Rename APK for Easy TV Download
         run: |
+          cp tv-app/app/build/outputs/apk/release/app-release.apk CiteraLoka.apk
           cp tv-app/app/build/outputs/apk/release/app-release.apk LK21-TV-NoAds.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: LK21-TV-NoAds-APK
-          path: LK21-TV-NoAds.apk
+          name: CiteraLoka-APK
+          path: |
+            CiteraLoka.apk
+            LK21-TV-NoAds.apk
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "LK21 TV App (Bebas Iklan) - Latest Build"
+          name: "CiteraLoka - Latest Build"
           body: |
-            ### 📺 Pemasangan Aplikasi Android TV (Standalone APK)
-            Muat turun fail **`LK21-TV-NoAds.apk`** di bawah terus ke Android TV / Google TV / Mi Box anda menggunakan aplikasi **Downloader**:
-            - **URL Muat Turun Terus:** `https://github.com/${{ github.repository }}/releases/download/latest/LK21-TV-NoAds.apk`
+            ### 📺 Pemasangan Aplikasi Android TV / Telefon (Standalone APK)
+            Muat turun fail **`CiteraLoka.apk`** di bawah terus ke Android TV / Google TV / Telefon pintar anda:
+            - **URL Muat Turun Terus (CiteraLoka):** `https://github.com/${{ github.repository }}/releases/download/latest/CiteraLoka.apk`
+            - **URL Alternatif:** `https://github.com/${{ github.repository }}/releases/download/latest/LK21-TV-NoAds.apk`
 
             ### ☁️ Pemasangan Melalui Cloudstream Repository (Plugin JSON)
-            Masukkan URL Repository ini di dalam aplikasi **Cloudstream** pada TV anda:
+            Masukkan URL Repository ini di dalam aplikasi **Cloudstream** pada TV / telefon anda:
             - **URL Cloudstream Repo:** `https://raw.githubusercontent.com/${{ github.repository }}/builds/repo.json`
           files: |
+            CiteraLoka.apk
             LK21-TV-NoAds.apk
           prerelease: false
 
