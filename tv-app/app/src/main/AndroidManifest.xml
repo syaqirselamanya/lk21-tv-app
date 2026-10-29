@@ -17,7 +17,7 @@
         android:banner="@drawable/tv_banner"
         android:hardwareAccelerated="true"
         android:icon="@drawable/ic_tv_logo"
-        android:label="LK21 TV (No Ads)"
+        android:label="CiteraLoka"
         android:supportsRtl="true"
         android:theme="@android:style/Theme.DeviceDefault.NoActionBar.Fullscreen"
         android:usesCleartextTraffic="true">
