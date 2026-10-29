@@ -1,64 +1,50 @@
-# 📺 LK21 TV (No Ads) — Android TV APK & Cloudstream Repository
+# 🎬 CiteraLoka — Aplikasi Penstriman Android TV & Telefon (Bebas Iklan)
 
-Projek ini menyediakan **dua cara pemasangan** di TV anda untuk menonton kandungan dari **`https://tv12.lk21official.cc/`** tanpa sebarang gangguan iklan sepanduk (*banner*), *pop-up*, atau *redirect*:
-
-1. **Aplikasi TV Tersendiri (`LK21-TV-NoAds.apk`)** — Antara muka (UI) khas Android TV yang menarik katalog poster, senarai episod drama/siri, pelayan (*mirror*), dan pemain video skrin penuh dengan **AdBlocker terbina dalam**.
-2. **Cloudstream Repository (`repo.json` & `.cs3`)** — Plugin rasmi untuk aplikasi **Cloudstream** di TV yang dipasang terus melalui URL GitHub.
+**CiteraLoka** ialah aplikasi hiburan dan penstriman kandungan filem serta siri drama dengan tema gelap **Dark Teal** minimalis, direka khas untuk keselesaan tontonan pada Android TV, Google TV, Mi Box, dan telefon pintar.
 
 ---
 
-## 🚀 Cara Guna & Auto-Build di GitHub
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.0)
 
-Anda tidak perlu pasang Android Studio di komputer. **GitHub Actions** telah dikonfigurasikan dalam [`.github/workflows/build.yml`](./.github/workflows/build.yml) untuk membina fail `.apk` dan `.cs3` secara automatik setiap kali anda *push* ke GitHub.
+1. **Antara Muka Sleek Minimalis (Tanpa Emoji)**
+   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `DOMAIN`.
+   * Tiada ikon emoji serabut; tipografi kemas dengan efek fokus aksen *Electric Teal*.
 
-### Langkah 1: Muat Naik ke GitHub Repository Anda
-Jalankan arahan berikut dalam terminal di folder projek ini:
+2. **Pemain Video Minimalis & Tetapan Standard Lengkap**
+   * Kawalan pemain video kemas tanpa emoji: `PLAY`, `PAUSE`, `+10s`, `-10s`, `+30s`, `-30s`.
+   * **Kawalan Suara Bersepadu:** `VOL +`, `VOL -`, `MUTE` dengan paparan peratusan audio pada skrin.
+   * **Kelajuan Strim (Playback Speed):** Pilihan `0.75x`, `1.0x`, `1.25x`, `1.5x`, `2.0x`.
+   * **Nisbah Skrin (Aspect Ratio):** Pilihan `FIT`, `ZOOM`, `FILL`.
+   * **Tukar Server & Episod Langsung:** Tukar pelayan (*P2P*, *CAST*, *HYDRAX*) atau tukar episod terus dalam pemain video.
 
-```bash
-git init
-git add .
-git commit -m "Initial commit: LK21 TV App & Cloudstream Repo"
-git branch -M main
-git remote add origin https://github.com/USERNAME_ANDA/NAMA_REPO_ANDA.git
-git push -u origin main
-```
+3. **Bahagian Sambung Menonton (Continue Watching)**
+   * Mengingati kedudukan detik terakhir tontonan anda secara automatik.
+   * Kad paparan khas dengan bar kemajuan (*progress bar*) hijau-teal dan baki masa.
+   * Klik kad untuk terus sambung tonton dari saat terakhir.
 
-### Langkah 2: Tunggu GitHub Actions Selesai (~2 Minit)
-1. Buka tab **Actions** di halaman GitHub repository anda.
-2. Workflow **`Build TV APK & Cloudstream Repo`** akan berjalan secara automatik dan menghasilkan:
-   - **GitHub Release (`latest`)** yang mengandungi fail **`LK21-TV-NoAds.apk`**.
-   - **Branch `builds`** yang mengandungi **`repo.json`**, **`plugins.json`**, dan **`LK21Provider.cs3`**.
+4. **Algoritma Cadangan Pintar (User Recommendation Engine)**
+   * Sistem cadangan peribadi (*Disyorkan Untuk Anda*) yang mengkaji tabiat tontonan anda:
+     * **Padanan Genre (3.5x):** Menjejaki genre kegemaran (Action, Thriller, Korea, dll.).
+     * **Padanan Rantau (2.5x):** Menyesuaikan pilihan negara/bahasa.
+     * **Pengaruh Rating IMDb & Tajuk Terkini:** Mengutamakan cerita berkualiti tinggi dan rilisan 2025/2026.
+     * **Penemuan Baharu:** Mengelakkan cerita yang sudah selesai ditonton daripada diulang tayang.
 
 ---
 
-## 📲 Cara Pasang di TV
+## 📲 Cara Pasang di Android TV / Telefon
 
-### Pilihan A: Pasang melalui Cloudstream (URL Repo JSON)
-1. Buka aplikasi **Cloudstream** di Android TV / Google TV anda.
-2. Pergi ke **Settings (⚙️) > Extensions > Add Repository**.
-3. Masukkan URL Repository anda:
+### Pilihan A: Pasang Terus Melalui Fail APK
+1. Buka aplikasi **Downloader** di Android TV / pelayar web di telefon anda.
+2. Masukkan URL muat turun:
    ```text
-   https://raw.githubusercontent.com/USERNAME_ANDA/NAMA_REPO_ANDA/builds/repo.json
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/CiteraLoka.apk
    ```
-4. Pilih **LK21 TV Official** dan klik muat turun plugin.
+3. Pasang dan nikmati tontonan CiteraLoka.
 
----
-
-### Pilihan B: Pasang Aplikasi Android TV Tersendiri (Fail APK)
-1. Buka aplikasi **Downloader** di Android TV / Mi Box / Chromecast anda.
-2. Masukkan URL muat turun terus dari GitHub Releases anda:
+### Pilihan B: Pasang Melalui Cloudstream
+1. Buka aplikasi **Cloudstream** di TV atau telefon anda.
+2. Pergi ke **Settings > Extensions > Add Repository**.
+3. Masukkan URL:
    ```text
-   https://github.com/USERNAME_ANDA/NAMA_REPO_ANDA/releases/download/latest/LK21-TV-NoAds.apk
+   https://raw.githubusercontent.com/syaqirselamanya/lk21-tv-app/builds/repo.json
    ```
-3. Pasang dan buka aplikasi **LK21 TV (No Ads)** dari skrin utama TV anda.
-
----
-
-## ✨ Ciri-Ciri Utama Aplikasi TV
-* **UI Katalog TV (Mesra Remote D-Pad):** Navigasi lancar antara kategori (*Terbaru, Populer, Drama Korea, Drama China, Series Barat, Action, Sci-Fi*) serta fungsi carian.
-* **Pemilih Episod & Pelayan (Mirror):** Mengambil senarai episod drama dan pelayan video (*Hydrax, TurboVip, Cast, P2P*) tanpa perlu membuka laman web penuh yang sarat iklan.
-* **Enjin AdBlocker Berlapis ([`AdBlocker.kt`](./tv-app/app/src/main/java/com/lk21tv/app/AdBlocker.kt)):**
-  * Menyekat permintaan rangkaian ke domain iklan, penjejak, dan sepanduk `.gif` melalui `shouldInterceptRequest`.
-  * Mematikan 100% semua cubaan tetingkap *pop-up* baru (`onCreateWindow` & `window.open`).
-  * Menyuntik CSS & JS untuk membuang semua kontena iklan dan *overlay* klik lutsinar di atas pemain video.
-* **Tetapan Tukar Domain Dinamik (`⚙️ Domain`):** Jika domain `tv12.lk21official.cc` bertukar kepada `tv13.lk21official.cc` pada masa hadapan, anda boleh terus mengemas kini URL tersebut menggunakan alat kawalan jauh TV tanpa perlu membina semula aplikasi.
