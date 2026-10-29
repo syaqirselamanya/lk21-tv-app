@@ -1,7 +1,7 @@
 {
-  "versionCode": 5,
-  "versionName": "3.1.0",
+  "versionCode": 6,
+  "versionName": "3.2.0",
   "activeDomain": "https://tv12.lk21official.cc",
   "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/CiteraLoka.apk",
-  "changelog": "Sistem In-App Auto-Update & Remote Config: Kemas kini aplikasi 1-klik di TV dan penyelarasan domain automatik."
+  "changelog": "Ikon aplikasi rasmi CiteraLoka (Batik Gold 'C') & Android TV Leanback Banner baharu."
 }
