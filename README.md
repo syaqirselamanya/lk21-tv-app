@@ -1,12 +1,21 @@
 # 🎬 CiteraLoka — Aplikasi Penstriman Android TV & Telefon (Bebas Iklan)
 
+<p align="center">
+  <img src="banner.png" alt="CiteraLoka TV Banner" width="700"/>
+</p>
+
 **CiteraLoka** ialah aplikasi hiburan dan penstriman kandungan filem serta siri drama dengan tema gelap **Dark Teal** minimalis, direka khas untuk keselesaan tontonan pada Android TV, Google TV, Mi Box, dan telefon pintar.
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.1)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.2)
 
-1. **Sistem In-App Auto-Update & Remote Config (OTA)**
+1. **Identiti Visual Rasmi (Batik Gold 'C' & TV Banner 16:9)**
+   * **Ikon Aplikasi Eksklusif:** Menggunakan reka bentuk 3D reben filem melengkung huruf **'C'** bertatahkan corak songket / batik emas dengan butang play segi tiga 3D bercahaya di tengah-tengah latar *Dark Teal*.
+   * **Android TV Leanback Banner Rasmi:** Banner paparan 16:9 beresolusi tinggi (*Ultra HD*) khas untuk baris aplikasi Leanback pada Android TV, Google TV, dan Mi Box.
+   * **Integrasi Bar Tajuk Aplikasi:** Lambang Batik Gold 'C' dipaparkan bersebelahan nama CiteraLoka pada bar navigasi atas.
+
+2. **Sistem In-App Auto-Update & Remote Config (OTA)**
    * **Kemas Kini 1-Klik Tanpa Perlu Downloader:** Apabila ada versi baharu, dialog kemas kini akan muncul secara automatik. Pengguna hanya perlu klik "KEMAS KINI" dan app akan memuat turun serta memasang APK baharu secara terus.
    * **Butang Semakan Manual:** Butang `KEMAS KINI` tersedia di bar kategori atas untuk menyemak kemas kini bila-bila masa.
    * **Penyelarasan Domain Automatik:** Sekiranya domain asal disekat, app akan menyelaraskan `base_url` baharu secara senyap melalui `config.json` di GitHub tanpa memerlukan pengguna memasang semula app.
