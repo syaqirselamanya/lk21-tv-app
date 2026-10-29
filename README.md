@@ -4,25 +4,30 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.0)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.1)
 
-1. **Antara Muka Sleek Minimalis (Tanpa Emoji)**
-   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `DOMAIN`.
+1. **Sistem In-App Auto-Update & Remote Config (OTA)**
+   * **Kemas Kini 1-Klik Tanpa Perlu Downloader:** Apabila ada versi baharu, dialog kemas kini akan muncul secara automatik. Pengguna hanya perlu klik "KEMAS KINI" dan app akan memuat turun serta memasang APK baharu secara terus.
+   * **Butang Semakan Manual:** Butang `KEMAS KINI` tersedia di bar kategori atas untuk menyemak kemas kini bila-bila masa.
+   * **Penyelarasan Domain Automatik:** Sekiranya domain asal disekat, app akan menyelaraskan `base_url` baharu secara senyap melalui `config.json` di GitHub tanpa memerlukan pengguna memasang semula app.
+
+2. **Antara Muka Sleek Minimalis (Tanpa Emoji)**
+   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `DOMAIN`, `KEMAS KINI`.
    * Tiada ikon emoji serabut; tipografi kemas dengan efek fokus aksen *Electric Teal*.
 
-2. **Pemain Video Minimalis & Tetapan Standard Lengkap**
+3. **Pemain Video Minimalis & Tetapan Standard Lengkap**
    * Kawalan pemain video kemas tanpa emoji: `PLAY`, `PAUSE`, `+10s`, `-10s`, `+30s`, `-30s`.
    * **Kawalan Suara Bersepadu:** `VOL +`, `VOL -`, `MUTE` dengan paparan peratusan audio pada skrin.
    * **Kelajuan Strim (Playback Speed):** Pilihan `0.75x`, `1.0x`, `1.25x`, `1.5x`, `2.0x`.
    * **Nisbah Skrin (Aspect Ratio):** Pilihan `FIT`, `ZOOM`, `FILL`.
    * **Tukar Server & Episod Langsung:** Tukar pelayan (*P2P*, *CAST*, *HYDRAX*) atau tukar episod terus dalam pemain video.
 
-3. **Bahagian Sambung Menonton (Continue Watching)**
+4. **Bahagian Sambung Menonton (Continue Watching)**
    * Mengingati kedudukan detik terakhir tontonan anda secara automatik.
    * Kad paparan khas dengan bar kemajuan (*progress bar*) hijau-teal dan baki masa.
    * Klik kad untuk terus sambung tonton dari saat terakhir.
 
-4. **Algoritma Cadangan Pintar (User Recommendation Engine)**
+5. **Algoritma Cadangan Pintar (User Recommendation Engine)**
    * Sistem cadangan peribadi (*Disyorkan Untuk Anda*) yang mengkaji tabiat tontonan anda:
      * **Padanan Genre (3.5x):** Menjejaki genre kegemaran (Action, Thriller, Korea, dll.).
      * **Padanan Rantau (2.5x):** Menyesuaikan pilihan negara/bahasa.
