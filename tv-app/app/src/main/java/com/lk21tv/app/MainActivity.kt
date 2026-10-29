@@ -144,6 +144,9 @@ class MainActivity : Activity() {
 
         topBar.addView(createCategoryBox("CARIAN") { showSearchDialog() })
         topBar.addView(createCategoryBox("DOMAIN") { showDomainDialog() })
+        topBar.addView(createCategoryBox("KEMAS KINI") {
+            AppUpdateManager.checkUpdate(this, isManual = true)
+        })
 
         topBarScroll.addView(topBar)
         root.addView(topBarScroll)
@@ -264,6 +267,16 @@ class MainActivity : Activity() {
         setContentView(root)
 
         loadCatalog(currentPath, currentPage)
+
+        // Semak kemas kini OTA & Remote Config secara senyap semasa pelancaran app
+        AppUpdateManager.checkUpdate(this, isManual = false) { newDomain ->
+            if (newDomain.isNotBlank() && newDomain != baseUrl) {
+                baseUrl = newDomain
+                mainHandler.post {
+                    loadCatalog(currentPath, currentPage)
+                }
+            }
+        }
     }
 
     override fun onResume() {
