@@ -7,7 +7,8 @@ import org.jsoup.nodes.Element
 
 class LK21Provider : MainAPI() {
     override var mainUrl = "https://tv12.lk21official.cc"
-    override var name = "LK21 TV Official"
+    override var name = "CiteraLoka"
+    override var iconUrl = "https://raw.githubusercontent.com/syaqirselamanya/lk21-tv-app/main/icon.png"
     override val hasMainPage = true
     override var lang = "id"
     override val supportedTypes = setOf(
