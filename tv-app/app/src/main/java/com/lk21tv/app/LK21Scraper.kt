@@ -36,7 +36,8 @@ data class MediaDetail(
     val quality: String,
     val episodes: List<EpisodeItem>,
     val mirrors: List<MirrorItem>,
-    val mainEmbedUrl: String?
+    val mainEmbedUrl: String?,
+    val genre: String = ""
 )
 
 data class ResolvedStream(
@@ -298,6 +299,8 @@ object LK21Scraper {
 
         val rating = doc.selectFirst("span.rating-number")?.text()?.trim() ?: ""
         val quality = doc.select("div.info-tag span").joinToString(" • ") { it.text().trim() }.ifBlank { "HD 1080p" }
+        val genre = doc.select("div.tag-list a[href*='/genre/'], .genre a").joinToString(", ") { it.text().trim() }
+            .ifBlank { doc.selectFirst("meta[itemprop='genre']")?.attr("content") ?: "" }
 
         // 1. Senarai Episod (jika Series)
         val episodes = mutableListOf<EpisodeItem>()
@@ -376,7 +379,8 @@ object LK21Scraper {
             quality = quality,
             episodes = episodes,
             mirrors = mirrors,
-            mainEmbedUrl = mainEmbedUrl
+            mainEmbedUrl = mainEmbedUrl,
+            genre = genre
         )
     }
 
