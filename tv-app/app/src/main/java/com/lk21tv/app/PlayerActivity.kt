@@ -32,7 +32,7 @@ class PlayerActivity : Activity() {
     private lateinit var loadingStatusText: TextView
     private lateinit var centerToastView: TextView
 
-    // Elemen Kawalan Pemain (OSD)
+    // Elemen Kawalan Pemain (OSD Sleek Minimalist - Tanpa Emoji)
     private lateinit var titleTextView: TextView
     private lateinit var serverBadgeBtn: Button
     private lateinit var episodeListBtn: Button
@@ -48,17 +48,26 @@ class PlayerActivity : Activity() {
     private var isPlaying = true
     private var isMuted = false
     private var currentDurationSec = 0
+    private var currentPositionSec = 0
     private var isUserSeeking = false
+    private var lastSavedSec = 0
 
     private val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var speedIndex = 1
 
-    private val fitModes = listOf("contain" to "Fit (Asal)", "cover" to "Zoom Penuh", "fill" to "Regang (Fill)")
+    private val fitModes = listOf("contain" to "FIT", "cover" to "ZOOM", "fill" to "FILL")
     private var fitIndex = 0
 
     private var pageUrl = ""
     private var baseUrl = "https://tv12.lk21official.cc"
-    private var currentTitle = "Pemain Video"
+    private var currentTitle = "CITERALOKA PLAYER"
+    private var posterUrl = ""
+    private var currentGenre = ""
+    private var currentEpisodeLabel = ""
+    private var currentServerName = "P2P Direct"
+    private var currentEmbedUrl = ""
+    private var resumeSec = 0
+
     private var mirrors = mutableListOf<MirrorItem>()
     private var episodes = mutableListOf<EpisodeItem>()
 
@@ -78,9 +87,13 @@ class PlayerActivity : Activity() {
 
         pageUrl = intent.getStringExtra("PAGE_URL") ?: ""
         val initialEmbedUrl = intent.getStringExtra("EMBED_URL") ?: ""
-        currentTitle = intent.getStringExtra("TITLE") ?: "Pemain Video LK21"
+        currentTitle = intent.getStringExtra("TITLE") ?: "CITERALOKA PLAYER"
         baseUrl = intent.getStringExtra("BASE_URL") ?: "https://tv12.lk21official.cc"
-        val initialServer = intent.getStringExtra("SERVER_NAME") ?: "P2P Direct"
+        currentServerName = intent.getStringExtra("SERVER_NAME") ?: "P2P Direct"
+        posterUrl = intent.getStringExtra("POSTER_URL") ?: ""
+        currentGenre = intent.getStringExtra("GENRE") ?: ""
+        currentEpisodeLabel = intent.getStringExtra("EPISODE_LABEL") ?: ""
+        resumeSec = intent.getIntExtra("RESUME_SEC", 0)
 
         val mirrorNames = intent.getStringArrayListExtra("MIRROR_NAMES") ?: arrayListOf()
         val mirrorUrls = intent.getStringArrayListExtra("MIRROR_URLS") ?: arrayListOf()
@@ -108,7 +121,7 @@ class PlayerActivity : Activity() {
         configureWebView()
         root.addView(webView)
 
-        // 2. Lapisan Loading Gaya Netflix Dark Teal
+        // 2. Lapisan Loading Minimalis Dark Teal
         loadingOverlay = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -119,28 +132,30 @@ class PlayerActivity : Activity() {
             )
         }
         val spinner = ProgressBar(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(54), dp(54)).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(50), dp(50)).apply {
                 bottomMargin = dp(16)
             }
         }
         loadingStatusText = TextView(this).apply {
-            text = "Menyediakan Strim Video HD..."
+            text = "MEMUATKAN STRIM HD..."
             setTextColor(Color.parseColor("#00D4B2"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.08f
         }
         loadingOverlay.addView(spinner)
         loadingOverlay.addView(loadingStatusText)
         root.addView(loadingOverlay)
 
-        // 3. Toast Penunjuk Tengah (Untuk Fast Forward, Suara, Kelajuan)
+        // 3. Toast Penunjuk Tengah (Sleek Minimal Text)
         centerToastView = TextView(this).apply {
             text = ""
             setTextColor(Color.parseColor("#F0FDFA"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 20f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
-            background = createRoundedBg("#D9071F29", "#00D4B2", 2, 14)
-            setPadding(dp(24), dp(14), dp(24), dp(14))
+            letterSpacing = 0.06f
+            background = createRoundedBg("#E6071F29", "#00D4B2", 2, 8)
+            setPadding(dp(22), dp(12), dp(22), dp(12))
             visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -150,11 +165,10 @@ class PlayerActivity : Activity() {
         }
         root.addView(centerToastView)
 
-        // 4. Antara Muka Kawalan Pemain (OSD) Gaya Netflix Dark Teal
-        osdContainer = buildNetflixDarkTealOsd()
+        // 4. Antara Muka Kawalan Pemain (OSD) Sleek Minimalis
+        osdContainer = buildMinimalistOsd()
         root.addView(osdContainer)
 
-        // Klik pada skrin untuk papar/sorok OSD
         webView.setOnTouchListener { _, event ->
             if (event.action == android.view.MotionEvent.ACTION_UP) {
                 toggleOsd()
@@ -164,10 +178,10 @@ class PlayerActivity : Activity() {
 
         setContentView(root)
 
-        startStreamResolution(pageUrl, initialEmbedUrl, initialServer)
+        startStreamResolution(pageUrl, initialEmbedUrl, currentServerName)
     }
 
-    private fun buildNetflixDarkTealOsd(): FrameLayout {
+    private fun buildMinimalistOsd(): FrameLayout {
         val container = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -175,7 +189,7 @@ class PlayerActivity : Activity() {
             )
         }
 
-        // BAR ATAS: Kembali, Tajuk Cerita, Pilihan Episod & Server
+        // BAR ATAS: Kembali, Tajuk Cerita, Pilihan Episod & Server (Sleek Text Only)
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -191,26 +205,27 @@ class PlayerActivity : Activity() {
             )
         }
 
-        val backBtn = createOsdButton("⬅  Kembali", isAccent = false) { finish() }
+        val backBtn = createOsdButton("KEMBALI", isAccent = false) { finish() }
 
         titleTextView = TextView(this).apply {
-            text = currentTitle
+            text = currentTitle.uppercase()
             setTextColor(Color.parseColor("#F0FDFA"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.04f
             maxLines = 1
             ellipsize = android.text.TextUtils.TruncateAt.END
             setPadding(dp(16), 0, dp(16), 0)
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        episodeListBtn = createOsdButton("📺 Episod", isAccent = false) {
+        episodeListBtn = createOsdButton("EPISOD", isAccent = false) {
             showEpisodeSwitchDialog()
         }.apply {
             visibility = View.GONE
         }
 
-        serverBadgeBtn = createOsdButton("🖥️ Server: P2P", isAccent = true) {
+        serverBadgeBtn = createOsdButton("SERVER: P2P", isAccent = true) {
             showServerSwitchDialog()
         }
 
@@ -220,7 +235,7 @@ class PlayerActivity : Activity() {
         topBar.addView(serverBadgeBtn)
         container.addView(topBar)
 
-        // PANEL BAWAH: SeekBar, Kawalan Main/Pause/FastForward, & Setting Standard (Suara, Kelajuan, Skrin)
+        // PANEL BAWAH: Timeline SeekBar & Butang Kawalan Minimalis (Play, Seek, Vol, Speed)
         val bottomPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             background = GradientDrawable(
@@ -231,7 +246,7 @@ class PlayerActivity : Activity() {
                     Color.TRANSPARENT
                 )
             )
-            setPadding(dp(28), dp(28), dp(28), dp(22))
+            setPadding(dp(28), dp(24), dp(28), dp(20))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -239,11 +254,11 @@ class PlayerActivity : Activity() {
             )
         }
 
-        // Baris 1: Garis Masa (Timeline SeekBar)
+        // Timeline SeekBar
         val timelineRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(10))
         }
 
         timeCurrentView = TextView(this).apply {
@@ -257,8 +272,8 @@ class PlayerActivity : Activity() {
             max = 1000
             progress = 0
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
-                leftMargin = dp(12)
-                rightMargin = dp(12)
+                leftMargin = dp(14)
+                rightMargin = dp(14)
             }
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
@@ -295,7 +310,7 @@ class PlayerActivity : Activity() {
         timelineRow.addView(timeTotalView)
         bottomPanel.addView(timelineRow)
 
-        // Baris 2: Butang Kawalan Utama (Play/Pause, Fast Forward, Rewind) & Setting Standard (Suara, Kelajuan, Skrin)
+        // Baris Butang Kawalan (Minimal Sleek Text Only - Tanpa Emoji)
         val controlsScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
         }
@@ -305,29 +320,26 @@ class PlayerActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Kawalan Masa & Main
-        val rw30Btn = createOsdButton("⏮ -30s", isAccent = false) { seekRelative(-30) }
-        val rw10Btn = createOsdButton("⏪ -10s", isAccent = false) { seekRelative(-10) }
+        val rw30Btn = createOsdButton("-30s", isAccent = false) { seekRelative(-30) }
+        val rw10Btn = createOsdButton("-10s", isAccent = false) { seekRelative(-10) }
 
-        playPauseBtn = createOsdButton("⏸  Pause", isAccent = true) {
+        playPauseBtn = createOsdButton("PAUSE", isAccent = true) {
             togglePlayPause()
         }
 
-        val ff10Btn = createOsdButton("⏩ +10s", isAccent = false) { seekRelative(10) }
-        val ff30Btn = createOsdButton("⏭ +30s", isAccent = false) { seekRelative(30) }
+        val ff10Btn = createOsdButton("+10s", isAccent = false) { seekRelative(10) }
+        val ff30Btn = createOsdButton("+30s", isAccent = false) { seekRelative(30) }
 
-        // Kawalan Suara (Volume Standard)
-        val volDownBtn = createOsdButton("🔉 Suara -", isAccent = false) { adjustVolume(-1) }
-        volumeStatusBtn = createOsdButton("🔊 ${getCurrentVolumePercent()}%", isAccent = false) {
+        val volDownBtn = createOsdButton("VOL -", isAccent = false) { adjustVolume(-1) }
+        volumeStatusBtn = createOsdButton("VOL ${getCurrentVolumePercent()}%", isAccent = false) {
             toggleMute()
         }
-        val volUpBtn = createOsdButton("🔊 Suara +", isAccent = false) { adjustVolume(1) }
+        val volUpBtn = createOsdButton("VOL +", isAccent = false) { adjustVolume(1) }
 
-        // Kawalan Kelajuan (Speed) & Nisbah Skrin (Aspect Ratio)
-        speedBtn = createOsdButton("⚡ 1.0x", isAccent = false) { cyclePlaybackSpeed() }
-        aspectBtn = createOsdButton("📐 Fit (Asal)", isAccent = false) { cycleAspectRatio() }
+        speedBtn = createOsdButton("1.0x", isAccent = false) { cyclePlaybackSpeed() }
+        aspectBtn = createOsdButton("FIT", isAccent = false) { cycleAspectRatio() }
 
-        val hideOsdBtn = createOsdButton("✖ Sorok", isAccent = false) {
+        val hideOsdBtn = createOsdButton("TUTUP", isAccent = false) {
             osdContainer.visibility = View.GONE
         }
 
@@ -352,27 +364,28 @@ class PlayerActivity : Activity() {
 
     private fun startStreamResolution(targetPageUrl: String, targetEmbedUrl: String, serverLabel: String) {
         loadingOverlay.visibility = View.VISIBLE
-        loadingStatusText.text = "Menyediakan Strim Video HD ($serverLabel)..."
-        serverBadgeBtn.text = "🖥️ Server: $serverLabel"
+        loadingStatusText.text = "MEMUATKAN ($serverLabel)..."
+        serverBadgeBtn.text = "SERVER: $serverLabel"
 
         executor.execute {
             try {
                 var embedToResolve = targetEmbedUrl
 
-                // Jika dipanggil terus dari kad cerita (tanpa dialog), tarik senarai mirror & episod dahulu
                 if (embedToResolve.isBlank() && targetPageUrl.isNotBlank()) {
                     val detail = LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
                     currentTitle = detail.title
+                    if (posterUrl.isBlank()) posterUrl = detail.posterUrl
+                    if (currentGenre.isBlank()) currentGenre = detail.genre
                     mirrors.clear()
                     mirrors.addAll(detail.mirrors)
                     episodes.clear()
                     episodes.addAll(detail.episodes)
 
-                    // Jika ini Series dan belum pilih episod, ambil episod pertama secara automatik
                     if (detail.mainEmbedUrl.isNullOrBlank() && detail.episodes.isNotEmpty()) {
                         val firstEp = detail.episodes.first()
                         val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
                         currentTitle = "${detail.title} • ${firstEp.label}"
+                        currentEpisodeLabel = firstEp.label
                         mirrors.clear()
                         mirrors.addAll(epDetail.mirrors)
                         embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
@@ -381,11 +394,15 @@ class PlayerActivity : Activity() {
                     }
                 }
 
+                currentEmbedUrl = embedToResolve
                 val resolved = LK21Scraper.resolveStream(embedToResolve, serverLabel)
 
+                // Rekod tontonan untuk algoritma cadangan pintar
+                UserRecommendationManager.recordView(this@PlayerActivity, currentGenre, targetPageUrl, weightBoost = 3)
+
                 mainHandler.post {
-                    titleTextView.text = currentTitle
-                    serverBadgeBtn.text = "🖥️ Server: ${resolved.serverName}"
+                    titleTextView.text = currentTitle.uppercase()
+                    serverBadgeBtn.text = "SERVER: ${resolved.serverName}"
                     episodeListBtn.visibility = if (episodes.isNotEmpty()) View.VISIBLE else View.GONE
 
                     if (resolved.isDirectHls) {
@@ -399,15 +416,12 @@ class PlayerActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     loadingOverlay.visibility = View.GONE
-                    showCenterToast("Gagal memuatkan server ini. Cuba tukar Server di penjuru kanan atas.")
+                    showCenterToast("RALAT PELAYAN. SILA TUKAR SERVER.")
                 }
             }
         }
     }
 
-    /**
-     * Pemain Video HTML5 + Hls.js Tulen (100% Tanpa Laman Web, Sokong Kawalan Penuh Suara/Seek/Speed)
-     */
     private fun loadDirectHlsPlayer(m3u8Url: String, refererOrigin: String) {
         val html = """
             <!DOCTYPE html>
@@ -520,10 +534,6 @@ class PlayerActivity : Activity() {
         webView.loadDataWithBaseURL(refererOrigin, html, "text/html", "UTF-8", null)
     }
 
-    /**
-     * Mod Iframe Terlindung untuk pelayan alternatif (CAST / HYDRAX) supaya window.self !== window.top
-     * dan tidak sesekali redirect ke laman web lk21.de!
-     */
     private fun loadProtectedEmbedPlayer(embedUrl: String, refererOrigin: String) {
         val html = """
             <!DOCTYPE html>
@@ -581,7 +591,6 @@ class PlayerActivity : Activity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return true
-                // Sekat sebarang cubaan redirect ke laman web lk21.de atau iklan
                 if (!AdBlocker.isAllowedPlayerNavigation(url)) {
                     return true
                 }
@@ -611,6 +620,12 @@ class PlayerActivity : Activity() {
         fun onVideoReady() {
             mainHandler.post {
                 loadingOverlay.visibility = View.GONE
+                // Jika pengguna membuka dari 'Sambung Menonton', sambung ke detik terakhir
+                if (resumeSec > 0) {
+                    seekToSeconds(resumeSec)
+                    showCenterToast("SAMBUNG: ${formatTime(resumeSec)}")
+                    resumeSec = 0
+                }
             }
         }
 
@@ -618,7 +633,7 @@ class PlayerActivity : Activity() {
         fun onPlayStateChanged(playing: Boolean) {
             mainHandler.post {
                 isPlaying = playing
-                playPauseBtn.text = if (playing) "⏸  Pause" else "▶  Play"
+                playPauseBtn.text = if (playing) "PAUSE" else "PLAY"
             }
         }
 
@@ -627,14 +642,38 @@ class PlayerActivity : Activity() {
             mainHandler.post {
                 if (durationSec > 0) {
                     currentDurationSec = durationSec
+                    currentPositionSec = currentSec
                     timeTotalView.text = formatTime(durationSec)
                     if (!isUserSeeking) {
                         timeCurrentView.text = formatTime(currentSec)
                         val progress = ((currentSec.toLong() * 1000L) / durationSec).toInt()
                         seekBar.progress = progress.coerceIn(0, 1000)
                     }
+
+                    // Simpan kemajuan tontonan ke ContinueWatchingManager setiap 5 saat
+                    if (Math.abs(currentSec - lastSavedSec) >= 5) {
+                        lastSavedSec = currentSec
+                        saveCurrentProgress()
+                    }
                 }
             }
+        }
+    }
+
+    private fun saveCurrentProgress() {
+        if (currentPositionSec > 5 && currentDurationSec > 0) {
+            ContinueWatchingManager.saveProgress(
+                context = this,
+                pageUrl = pageUrl,
+                embedUrl = currentEmbedUrl,
+                title = currentTitle,
+                posterUrl = posterUrl,
+                currentSec = currentPositionSec,
+                durationSec = currentDurationSec,
+                episodeLabel = currentEpisodeLabel,
+                serverName = currentServerName,
+                genre = currentGenre
+            )
         }
     }
 
@@ -655,8 +694,8 @@ class PlayerActivity : Activity() {
         ) { res ->
             val nowPlaying = res?.contains("true") == true
             isPlaying = nowPlaying
-            playPauseBtn.text = if (nowPlaying) "⏸  Pause" else "▶  Play"
-            showCenterToast(if (nowPlaying) "▶  Main" else "⏸  Jeda (Pause)")
+            playPauseBtn.text = if (nowPlaying) "PAUSE" else "PLAY"
+            showCenterToast(if (nowPlaying) "PLAY" else "PAUSE")
         }
     }
 
@@ -672,7 +711,7 @@ class PlayerActivity : Activity() {
             """.trimIndent(),
             null
         )
-        val label = if (deltaSeconds > 0) "⏩  +${deltaSeconds}s" else "⏪  ${deltaSeconds}s"
+        val label = if (deltaSeconds > 0) "+${deltaSeconds}s" else "${deltaSeconds}s"
         showCenterToast(label)
     }
 
@@ -688,7 +727,7 @@ class PlayerActivity : Activity() {
             """.trimIndent(),
             null
         )
-        showCenterToast("⏱️  ${formatTime(targetSeconds)}")
+        showCenterToast(formatTime(targetSeconds))
     }
 
     private fun adjustVolume(direction: Int) {
@@ -698,8 +737,8 @@ class PlayerActivity : Activity() {
         isMuted = false
         webView.evaluateJavascript("if(window.playerControl) window.playerControl.setMuted(false);", null)
         val pct = getCurrentVolumePercent()
-        volumeStatusBtn.text = "🔊 $pct%"
-        showCenterToast("🔊  Suara: $pct%")
+        volumeStatusBtn.text = "VOL $pct%"
+        showCenterToast("VOL: $pct%")
     }
 
     private fun toggleMute() {
@@ -707,12 +746,12 @@ class PlayerActivity : Activity() {
         isMuted = !isMuted
         webView.evaluateJavascript("if(window.playerControl) window.playerControl.setMuted($isMuted);", null)
         if (isMuted) {
-            volumeStatusBtn.text = "🔇 Mute"
-            showCenterToast("🔇  Suara Disenyapkan (Mute)")
+            volumeStatusBtn.text = "MUTED"
+            showCenterToast("MUTED")
         } else {
             val pct = getCurrentVolumePercent()
-            volumeStatusBtn.text = "🔊 $pct%"
-            showCenterToast("🔊  Suara: $pct%")
+            volumeStatusBtn.text = "VOL $pct%"
+            showCenterToast("VOL: $pct%")
         }
     }
 
@@ -736,8 +775,8 @@ class PlayerActivity : Activity() {
             """.trimIndent(),
             null
         )
-        speedBtn.text = "⚡ ${rate}x"
-        showCenterToast("⚡  Kelajuan Video: ${rate}x")
+        speedBtn.text = "${rate}x"
+        showCenterToast("SPEED: ${rate}x")
     }
 
     private fun cycleAspectRatio() {
@@ -754,38 +793,39 @@ class PlayerActivity : Activity() {
             """.trimIndent(),
             null
         )
-        aspectBtn.text = "📐 $label"
-        showCenterToast("📐  Nisbah Skrin: $label")
+        aspectBtn.text = label
+        showCenterToast("SKRIN: $label")
     }
 
     private fun showServerSwitchDialog() {
         if (mirrors.isEmpty()) {
-            showCenterToast("Tiada pelayan alternatif untuk cerita ini.")
+            showCenterToast("TIADA SERVER ALTERNATIF")
             return
         }
-        val names = mirrors.map { "🖥️  Server ${it.name}" }.toTypedArray()
+        val names = mirrors.map { "SERVER: ${it.name}" }.toTypedArray()
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("Tukar Pelayan Video (Server)")
+            .setTitle("TUKAR SERVER")
             .setItems(names) { _, which ->
                 val chosen = mirrors[which]
                 startStreamResolution(pageUrl, chosen.embedUrl, chosen.name)
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("BATAL", null)
             .show()
     }
 
     private fun showEpisodeSwitchDialog() {
         if (episodes.isEmpty()) return
-        val names = episodes.map { "▶  ${it.label}" }.toTypedArray()
+        val names = episodes.map { it.label }.toTypedArray()
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("Pilih Episod")
+            .setTitle("PILIH EPISOD")
             .setItems(names) { _, which ->
                 val ep = episodes[which]
                 pageUrl = ep.url
+                currentEpisodeLabel = ep.label
                 currentTitle = "${currentTitle.substringBefore(" • ")} • ${ep.label}"
                 startStreamResolution(ep.url, "", "P2P Direct")
             }
-            .setNegativeButton("Batal", null)
+            .setNegativeButton("BATAL", null)
             .show()
     }
 
@@ -802,14 +842,14 @@ class PlayerActivity : Activity() {
 
     private fun rescheduleAutoHide() {
         mainHandler.removeCallbacks(autoHideRunnable)
-        mainHandler.postDelayed(autoHideRunnable, 6000)
+        mainHandler.postDelayed(autoHideRunnable, 5000)
     }
 
     private fun showCenterToast(message: String) {
         centerToastView.text = message
         centerToastView.visibility = View.VISIBLE
         mainHandler.removeCallbacks(hideToastRunnable)
-        mainHandler.postDelayed(hideToastRunnable, 1800)
+        mainHandler.postDelayed(hideToastRunnable, 1600)
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent?): Boolean {
@@ -836,7 +876,6 @@ class PlayerActivity : Activity() {
             }
         }
 
-        // Apabila OSD sedang tersembunyi, anak panah Remote TV terus mengawal Fast Forward, Rewind & Play/Pause!
         if (!osdVisible) {
             when (keyCode) {
                 KeyEvent.KEYCODE_DPAD_RIGHT -> {
@@ -878,13 +917,14 @@ class PlayerActivity : Activity() {
         val normalBorder = if (isAccent) "#00D4B2" else "#134556"
         return Button(this).apply {
             text = label
-            isAllCaps = false
+            isAllCaps = true
             setTextColor(Color.parseColor("#F0FDFA"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.05f
             isFocusable = true
             isFocusableInTouchMode = false
-            background = createRoundedBg(normalBg, normalBorder, 1, 8)
+            background = createRoundedBg(normalBg, normalBorder, 1, 6)
             setPadding(dp(14), dp(8), dp(14), dp(8))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -895,12 +935,12 @@ class PlayerActivity : Activity() {
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
                     (v as Button).setTextColor(Color.parseColor("#031117"))
-                    v.background = createRoundedBg("#00D4B2", "#FFFFFF", 2, 8)
-                    v.scaleX = 1.06f
-                    v.scaleY = 1.06f
+                    v.background = createRoundedBg("#00D4B2", "#FFFFFF", 2, 6)
+                    v.scaleX = 1.05f
+                    v.scaleY = 1.05f
                 } else {
                     (v as Button).setTextColor(Color.parseColor("#F0FDFA"))
-                    v.background = createRoundedBg(normalBg, normalBorder, 1, 8)
+                    v.background = createRoundedBg(normalBg, normalBorder, 1, 6)
                     v.scaleX = 1.0f
                     v.scaleY = 1.0f
                 }
@@ -943,7 +983,13 @@ class PlayerActivity : Activity() {
         ).toInt()
     }
 
+    override fun onPause() {
+        super.onPause()
+        saveCurrentProgress()
+    }
+
     override fun onDestroy() {
+        saveCurrentProgress()
         mainHandler.removeCallbacksAndMessages(null)
         webView.destroy()
         super.onDestroy()
