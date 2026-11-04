@@ -24,6 +24,7 @@ import android.widget.*
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
 class MainActivity : Activity() {
@@ -43,12 +44,20 @@ class MainActivity : Activity() {
 
     private val executor = Executors.newFixedThreadPool(6)
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val imageCache = object : LruCache<String, Bitmap>(32 * 1024 * 1024) {
+    private val imageCache = object : LruCache<String, Bitmap>(36 * 1024 * 1024) {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
     private lateinit var contentColumn: LinearLayout
     private lateinit var heroContainer: FrameLayout
+    private lateinit var heroBackdropView: ImageView
+    private lateinit var heroLogoView: ImageView
+    private lateinit var heroTitleView: TextView
+    private lateinit var heroMetaView: TextView
+    private lateinit var heroBadgeRow: LinearLayout
+    private lateinit var heroPlotView: TextView
+    private lateinit var sourceModeBtn: Button
+
     private lateinit var continueWatchingContainer: LinearLayout
     private lateinit var continueWatchingScroll: HorizontalScrollView
     private lateinit var recommendationContainer: LinearLayout
@@ -62,12 +71,19 @@ class MainActivity : Activity() {
     private var currentPath = "/latest"
     private var currentCategoryLabel = "TERBARU"
     private var allLoadedItems = mutableListOf<MediaItem>()
+    private var activeHeroItem: MediaItem? = null
+    private var pendingHeroRunnable: Runnable? = null
 
     private val prefs by lazy { getSharedPreferences("citeraloka_prefs", Context.MODE_PRIVATE) }
 
     private var baseUrl: String
         get() = prefs.getString("base_url", "https://tv12.lk21official.cc") ?: "https://tv12.lk21official.cc"
         set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
+
+    // Mod Sumber: "AUTO" (Gabungan Pintar + Auto-Fallback), "LK21", atau "WATCH32"
+    private var sourceMode: String
+        get() = prefs.getString("source_mode", "AUTO") ?: "AUTO"
+        set(value) = prefs.edit().putString("source_mode", value).apply()
 
     // Senarai Kategori Minimalis (Box & Name sahaja, tiada emoji)
     private val categories = listOf(
@@ -151,6 +167,12 @@ class MainActivity : Activity() {
         brandLayout.addView(brandTextGroup)
         topBar.addView(brandLayout)
 
+        // Butang Tukar Sumber Pelayan (Gabungan Auto / LK21 / Watch32) - Box & Name Sahaja
+        sourceModeBtn = createCategoryBox(getSourceModeButtonLabel()) {
+            showSourceModeDialog()
+        }
+        topBar.addView(sourceModeBtn)
+
         // Butang Kategori (Box & Name Sahaja)
         categories.forEach { (label, path) ->
             topBar.addView(createCategoryBox(label) {
@@ -170,7 +192,11 @@ class MainActivity : Activity() {
         topBarScroll.addView(topBar)
         root.addView(topBarScroll)
 
-        // Kontena Skrol Utama
+        // 1. Pinned Live Hero Spotlight (Kekal di Atas & Bertukar Live Mengikut Fokus Remote)
+        heroContainer = buildPinnedHeroSpotlightStage()
+        root.addView(heroContainer)
+
+        // Kontena Skrol Utama di Bawah Pinned Hero Spotlight
         val scrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -182,19 +208,8 @@ class MainActivity : Activity() {
 
         contentColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(14), dp(24), dp(32))
+            setPadding(dp(24), dp(12), dp(24), dp(32))
         }
-
-        // 1. Hero Spotlight Banner
-        heroContainer = FrameLayout(this).apply {
-            layoutParams = LinearLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            ).apply {
-                bottomMargin = dp(20)
-            }
-        }
-        contentColumn.addView(heroContainer)
 
         // 2. Bahagian Continue Watching (Sambung Menonton)
         continueWatchingContainer = LinearLayout(this).apply {
@@ -381,28 +396,132 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun getSourceModeButtonLabel(): String {
+        return when (sourceMode) {
+            "LK21" -> "SUMBER: LK21"
+            "WATCH32" -> "SUMBER: WATCH32"
+            else -> "SUMBER: AUTO"
+        }
+    }
+
+    private fun showSourceModeDialog() {
+        val options = arrayOf(
+            "GABUNGAN PINTAR (AUTO-FALLBACK + CARIAN 2 SERVER)",
+            "LAYARKACA21 UTAMA (SUB INDO + SANDARAN WATCH32)",
+            "WATCH32 GLOBAL (KATALOG PENUH TMDB + MULTI-SERVER)"
+        )
+        val modes = arrayOf("AUTO", "LK21", "WATCH32")
+        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+            .setTitle("PILIH SUMBER KANDUNGAN")
+            .setItems(options) { _, which ->
+                sourceMode = modes[which]
+                sourceModeBtn.text = getSourceModeButtonLabel()
+                currentPage = 1
+                loadCatalog(currentPath, currentPage)
+            }
+            .setNegativeButton("BATAL", null)
+            .show()
+    }
+
+    private fun normalizeTitleKey(raw: String): String {
+        return raw.lowercase()
+            .replace(Regex("\\(\\d{4}\\)"), "")
+            .replace(Regex("[^a-z0-9]"), "")
+    }
+
     private fun loadCatalog(path: String, page: Int) {
+        val mode = sourceMode
         progressBar.visibility = View.VISIBLE
         sectionTitleView.text = "KANDUNGAN: $currentCategoryLabel  •  HALAMAN $page"
-        statusText.text = "Memuatkan..."
+        statusText.text = "Memuatkan ($mode)..."
         gridContainer.removeAllViews()
 
         executor.execute {
             try {
-                val items = LK21Scraper.fetchCatalog(baseUrl, path, page)
+                var usedAutoFallback = false
+                val combined = mutableListOf<MediaItem>()
+
+                when (mode) {
+                    "WATCH32" -> {
+                        combined.addAll(Watch32Scraper.fetchCatalog(path, page))
+                    }
+                    "LK21" -> {
+                        val lkItems = try {
+                            LK21Scraper.fetchCatalog(baseUrl, path, page)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                        if (lkItems.isNotEmpty()) {
+                            combined.addAll(lkItems)
+                        } else {
+                            // Auto-fallback ke Watch32 jika LK21 down/disekat atau carian tiada dalam LK21
+                            val w32Items = Watch32Scraper.fetchCatalog(path, page)
+                            if (w32Items.isNotEmpty()) {
+                                usedAutoFallback = true
+                                combined.addAll(w32Items)
+                            }
+                        }
+                    }
+                    else -> {
+                        // Mod AUTO (Gabungan Pintar): Tarik LK21 & Watch32 secara selari!
+                        val w32Future = executor.submit(Callable {
+                            try {
+                                Watch32Scraper.fetchCatalog(path, page)
+                            } catch (_: Exception) {
+                                emptyList()
+                            }
+                        })
+                        val lkItems = try {
+                            LK21Scraper.fetchCatalog(baseUrl, path, page)
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+                        val w32Items = try {
+                            w32Future.get()
+                        } catch (_: Exception) {
+                            emptyList()
+                        }
+
+                        if (lkItems.isEmpty() && w32Items.isNotEmpty()) {
+                            usedAutoFallback = true
+                            combined.addAll(w32Items)
+                        } else {
+                            val seenKeys = HashSet<String>()
+                            lkItems.forEach { item ->
+                                seenKeys.add(normalizeTitleKey(item.title))
+                                combined.add(item)
+                            }
+                            // Tambah cerita eksklusif dari Watch32 yang tiada dalam LK21
+                            w32Items.forEach { item ->
+                                val key = normalizeTitleKey(item.title)
+                                if (key.isNotBlank() && !seenKeys.contains(key)) {
+                                    seenKeys.add(key)
+                                    combined.add(item)
+                                }
+                            }
+                        }
+                    }
+                }
+
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    if (items.isEmpty()) {
+                    if (combined.isEmpty()) {
                         statusText.text = "Tiada kandungan ditemui."
                     } else {
-                        statusText.text = "${items.size} TAJUK TERSEDIA"
+                        statusText.text = when {
+                            usedAutoFallback -> "AUTO-FALLBACK WATCH32  •  ${combined.size} TAJUK"
+                            mode == "WATCH32" -> "WATCH32 GLOBAL  •  ${combined.size} TAJUK"
+                            mode == "LK21" -> "LK21  •  ${combined.size} TAJUK"
+                            else -> "LK21 + WATCH32  •  ${combined.size} TAJUK"
+                        }
                         allLoadedItems.clear()
-                        allLoadedItems.addAll(items)
+                        allLoadedItems.addAll(combined)
 
-                        renderHeroBanner(items.first())
+                        updateHeroSpotlightImmediate(combined.first())
+                        scheduleHeroSpotlight(combined.first(), delayMs = 0L)
                         refreshContinueWatchingSection()
                         refreshRecommendationSection()
-                        renderCards(items)
+                        renderCards(combined)
                     }
                 }
             } catch (e: Exception) {
@@ -415,100 +534,323 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Hero Banner Tayangan Utama (Sleek Minimal Typography & Buttons)
+     * Pinned Live Hero Spotlight (Inspirasi Nuvio Android TV - Tema Dark Teal Tanpa Emoji)
+     * Kekal di bahagian atas skrin dan bertukar secara live mengikut fokus kad remote/sentuhan!
      */
-    private fun renderHeroBanner(featured: MediaItem) {
-        heroContainer.removeAllViews()
+    private fun buildPinnedHeroSpotlightStage(): FrameLayout {
+        val dm = resources.displayMetrics
+        val stageHeight = (dm.heightPixels * 0.42f).toInt().coerceIn(dp(162), dp(242))
+        val isCompactHeight = dm.heightPixels < dp(460)
 
-        val bannerCard = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            background = GradientDrawable(
-                GradientDrawable.Orientation.LEFT_RIGHT,
-                intArrayOf(
-                    Color.parseColor("#06222E"),
-                    Color.parseColor("#0B3849"),
-                    Color.parseColor("#051923")
-                )
-            ).apply {
-                cornerRadius = dp(12).toFloat()
-                setStroke(dp(1), Color.parseColor(BORDER_SUBTLE_TEAL))
-            }
-            setPadding(dp(24), dp(18), dp(24), dp(18))
-            layoutParams = FrameLayout.LayoutParams(
+        val stage = FrameLayout(this).apply {
+            setBackgroundColor(Color.parseColor(BG_DEEP_TEAL))
+            layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                stageHeight
             )
         }
 
-        val posterCard = ImageView(this).apply {
+        // Lapisan 1: 16:9 Widescreen Backdrop di sebelah kanan
+        val backdropWidth = (dm.widthPixels * 0.72f).toInt()
+        heroBackdropView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = createRoundedBg(BG_DEEP_TEAL, ACCENT_TEAL, 1, 8)
-            layoutParams = LinearLayout.LayoutParams(dp(125), dp(180)).apply {
-                rightMargin = dp(24)
-            }
+            setBackgroundColor(Color.parseColor(BG_DEEP_TEAL))
+            layoutParams = FrameLayout.LayoutParams(
+                backdropWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.END
+            )
         }
-        loadImageAsync(featured.posterUrl, posterCard)
-        bannerCard.addView(posterCard)
+        stage.addView(heroBackdropView)
 
+        // Lapisan 2A: Vignette Kiri-ke-Kanan (supaya teks & ClearLogo jelas di atas backdrop)
+        val leftVignette = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.LEFT_RIGHT,
+                intArrayOf(
+                    Color.parseColor("#FF031117"),
+                    Color.parseColor("#FA031117"),
+                    Color.parseColor("#CC031117"),
+                    Color.parseColor("#4D031117"),
+                    Color.parseColor("#0D031117")
+                )
+            )
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+        }
+        stage.addView(leftVignette)
+
+        // Lapisan 2B: Vignette Bawah-ke-Atas (cantuman halus dengan ruang skrol katalog)
+        val bottomVignette = View(this).apply {
+            background = GradientDrawable(
+                GradientDrawable.Orientation.BOTTOM_TOP,
+                intArrayOf(
+                    Color.parseColor("#FF031117"),
+                    Color.parseColor("#99031117"),
+                    Color.TRANSPARENT
+                )
+            )
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(52),
+                Gravity.BOTTOM
+            )
+        }
+        stage.addView(bottomVignette)
+
+        // Garis Pemisah Nipis Subtle Teal di Bawah Stage
+        val bottomDivider = View(this).apply {
+            setBackgroundColor(Color.parseColor(BORDER_SUBTLE_TEAL))
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                dp(1),
+                Gravity.BOTTOM
+            )
+        }
+        stage.addView(bottomDivider)
+
+        // Lapisan 3: Kolum Maklumat Live & Official ClearLogo PNG di Sebelah Kiri
+        val infoWidth = (dm.widthPixels * 0.60f).toInt().coerceAtLeast(dp(300))
         val infoCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(28), dp(10), dp(16), dp(12))
+            layoutParams = FrameLayout.LayoutParams(
+                infoWidth,
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                Gravity.START or Gravity.CENTER_VERTICAL
+            )
         }
 
-        val tagBadge = TextView(this).apply {
-            text = "CITERALOKA PILIHAN  •  ${featured.episodeOrQuality}  ${if (featured.rating.isNotBlank()) "•  IMDb ${featured.rating}" else ""}"
-            setTextColor(Color.parseColor(ACCENT_TEAL))
+        // Official ClearLogo PNG (daripada TMDB)
+        heroLogoView = ImageView(this).apply {
+            scaleType = ImageView.ScaleType.FIT_START
+            adjustViewBounds = true
+            maxWidth = dp(240)
+            maxHeight = if (isCompactHeight) dp(42) else dp(56)
+            visibility = View.GONE
+            layoutParams = LinearLayout.LayoutParams(
+                dp(230),
+                if (isCompactHeight) dp(42) else dp(56)
+            ).apply {
+                bottomMargin = dp(6)
+            }
+        }
+        infoCol.addView(heroLogoView)
+
+        // Fallback Tajuk Teks Bergaya (dipaparkan jika tiada ClearLogo PNG atau semasa memuatkan)
+        heroTitleView = TextView(this).apply {
+            text = "CITERALOKA"
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 19f else 24f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.03f
+            maxLines = 1
+            ellipsize = TextUtils.TruncateAt.END
+            setPadding(0, 0, 0, dp(4))
+        }
+        infoCol.addView(heroTitleView)
+
+        // Baris Metadata: Genre • Durasi • Tarikh Tayangan
+        heroMetaView = TextView(this).apply {
+            text = "Memuatkan maklumat..."
+            setTextColor(Color.parseColor(TEXT_SECONDARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.08f
-        }
-
-        val heroTitle = TextView(this).apply {
-            text = featured.title
-            setTextColor(Color.parseColor(TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
-            typeface = Typeface.DEFAULT_BOLD
-            maxLines = 2
+            letterSpacing = 0.03f
+            maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            setPadding(0, dp(6), 0, dp(4))
+            setPadding(0, 0, 0, dp(6))
         }
+        infoCol.addView(heroMetaView)
 
-        val genreSub = TextView(this).apply {
-            text = if (featured.genre.isNotBlank()) {
-                "GENRE: ${featured.genre.uppercase()}  •  STRIM DEFINISI TINGGI"
-            } else {
-                "STRIM LANGSUNG HD  •  BEBAS IKLAN  •  KAWALAN PENUH TV"
-            }
-            setTextColor(Color.parseColor(TEXT_SECONDARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            letterSpacing = 0.05f
-            setPadding(0, 0, 0, dp(14))
+        // Baris Lencana Minimalis (Status, Kualiti, IMDb, Sumber - Tanpa Emoji)
+        heroBadgeRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(6))
         }
+        infoCol.addView(heroBadgeRow)
 
-        val btnRow = LinearLayout(this).apply {
+        // Sinopsis Ringkas (2-3 Baris)
+        heroPlotView = TextView(this).apply {
+            text = ""
+            setTextColor(Color.parseColor("#D5F5F0"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 11f else 12f)
+            maxLines = if (isCompactHeight) 2 else 3
+            ellipsize = TextUtils.TruncateAt.END
+            setLineSpacing(0f, 1.15f)
+            setPadding(0, 0, 0, dp(8))
+        }
+        infoCol.addView(heroPlotView)
+
+        // Baris Tindakan Pantas (untuk sentuhan atau navigasi ke atas)
+        val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-
-        val playNowBtn = createSleekButton("MAIN SEKARANG", isPrimary = true) {
-            onItemClicked(featured, playImmediately = true)
+        val playHeroBtn = createCompactHeroButton("MAIN SEKARANG", isPrimary = true) {
+            activeHeroItem?.let { onItemClicked(it, playImmediately = !it.isSeries) }
         }
-
-        val detailBtn = createSleekButton("INFO & EPISOD", isPrimary = false) {
-            onItemClicked(featured, playImmediately = false)
+        val infoHeroBtn = createCompactHeroButton("INFO & SERVER", isPrimary = false) {
+            activeHeroItem?.let { onItemClicked(it, playImmediately = false) }
         }
+        actionRow.addView(playHeroBtn)
+        actionRow.addView(infoHeroBtn)
+        infoCol.addView(actionRow)
 
-        btnRow.addView(playNowBtn)
-        btnRow.addView(detailBtn)
+        stage.addView(infoCol)
+        return stage
+    }
 
-        infoCol.addView(tagBadge)
-        infoCol.addView(heroTitle)
-        infoCol.addView(genreSub)
-        infoCol.addView(btnRow)
+    private fun createCompactHeroButton(
+        label: String,
+        isPrimary: Boolean,
+        onClick: () -> Unit
+    ): Button {
+        val normalBg = if (isPrimary) ACCENT_TEAL_DARK else "#CC071F29"
+        val normalBorder = if (isPrimary) ACCENT_TEAL else BORDER_SUBTLE_TEAL
+        return Button(this).apply {
+            text = label
+            isAllCaps = true
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+            isFocusable = true
+            isFocusableInTouchMode = false
+            background = createRoundedBg(normalBg, normalBorder, 1, 5)
+            setPadding(dp(14), dp(6), dp(14), dp(6))
+            minHeight = 0
+            minimumHeight = 0
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(8)
+            }
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    (v as Button).setTextColor(Color.parseColor(BG_DEEP_TEAL))
+                    v.background = createRoundedBg(ACCENT_TEAL, "#FFFFFF", 2, 5)
+                    v.scaleX = 1.04f
+                    v.scaleY = 1.04f
+                } else {
+                    (v as Button).setTextColor(Color.parseColor(TEXT_PRIMARY))
+                    v.background = createRoundedBg(normalBg, normalBorder, 1, 5)
+                    v.scaleX = 1.0f
+                    v.scaleY = 1.0f
+                }
+            }
+            setOnClickListener { onClick() }
+        }
+    }
 
-        bannerCard.addView(infoCol)
-        heroContainer.addView(bannerCard)
+    private fun createHeroPillBadge(textLabel: String, textHex: String, bgHex: String, borderHex: String): TextView {
+        return TextView(this).apply {
+            text = textLabel
+            setTextColor(Color.parseColor(textHex))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+            background = createRoundedBg(bgHex, borderHex, 1, 4)
+            setPadding(dp(7), dp(2), dp(7), dp(2))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
+        }
+    }
+
+    private fun updateHeroSpotlightImmediate(item: MediaItem) {
+        activeHeroItem = item
+        val cleanTitle = item.title.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { item.title }
+        heroLogoView.setImageDrawable(null)
+        heroLogoView.visibility = View.GONE
+        heroTitleView.visibility = View.VISIBLE
+        heroTitleView.text = cleanTitle
+
+        val initialMeta = listOf(
+            item.genre.replace(",", " •").trim(),
+            item.releaseInfo
+        ).filter { it.isNotBlank() }.joinToString("  •  ").ifBlank { "Strim Definisi Tinggi  •  Bebas Iklan" }
+        heroMetaView.text = initialMeta
+
+        renderHeroBadges(
+            status = item.statusBadge.ifBlank { if (item.isSeries) "SERIES" else "RELEASED" },
+            quality = item.episodeOrQuality.replace("W32 • ", "").ifBlank { "HD" },
+            rating = item.rating,
+            source = item.source
+        )
+
+        heroPlotView.text = item.plot.ifBlank { "Memuatkan sinopsis & maklumat penuh cerita..." }
+
+        val initialBackdrop = item.backdropUrl.ifBlank { item.posterUrl }
+        if (initialBackdrop.isNotBlank()) {
+            loadImageAsync(initialBackdrop, heroBackdropView, crossfade = true)
+        }
+    }
+
+    private fun renderHeroBadges(status: String, quality: String, rating: String, source: String) {
+        heroBadgeRow.removeAllViews()
+        if (status.isNotBlank()) {
+            heroBadgeRow.addView(createHeroPillBadge(status.uppercase(), ACCENT_TEAL, "#CC071F29", ACCENT_TEAL_DARK))
+        }
+        if (quality.isNotBlank()) {
+            heroBadgeRow.addView(createHeroPillBadge(quality.uppercase(), TEXT_PRIMARY, BG_CARD_TEAL, BORDER_SUBTLE_TEAL))
+        }
+        if (rating.isNotBlank()) {
+            heroBadgeRow.addView(createHeroPillBadge("IMDb $rating", "#FACC15", "#D904151F", BORDER_SUBTLE_TEAL))
+        }
+        if (source.isNotBlank()) {
+            val srcBorder = if (source == "WATCH32") ACCENT_TEAL else BORDER_SUBTLE_TEAL
+            heroBadgeRow.addView(createHeroPillBadge(source.uppercase(), TEXT_SECONDARY, "#CC061C24", srcBorder))
+        }
+    }
+
+    private fun scheduleHeroSpotlight(item: MediaItem, delayMs: Long = 110L) {
+        pendingHeroRunnable?.let { mainHandler.removeCallbacks(it) }
+        val task = Runnable {
+            updateHeroSpotlightImmediate(item)
+            executor.execute {
+                val enriched = Watch32Scraper.enrichHeroSpotlight(item)
+                mainHandler.post {
+                    if (activeHeroItem?.url != item.url) return@post
+
+                    heroMetaView.text = enriched.metaLine
+                    heroPlotView.text = enriched.plot
+                    renderHeroBadges(
+                        status = enriched.statusBadge,
+                        quality = enriched.qualityBadge,
+                        rating = enriched.rating,
+                        source = enriched.sourceBadge
+                    )
+
+                    if (enriched.backdropUrl.isNotBlank()) {
+                        loadImageAsync(enriched.backdropUrl, heroBackdropView, crossfade = true)
+                    }
+
+                    if (enriched.logoUrl.isNotBlank()) {
+                        loadImageAsync(enriched.logoUrl, heroLogoView, crossfade = false) { success ->
+                            if (success && activeHeroItem?.url == item.url) {
+                                heroLogoView.visibility = View.VISIBLE
+                                heroTitleView.visibility = View.GONE
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        pendingHeroRunnable = task
+        if (delayMs <= 0L) {
+            task.run()
+        } else {
+            mainHandler.postDelayed(task, delayMs)
+        }
     }
 
     /**
@@ -573,6 +915,18 @@ class MainActivity : Activity() {
                         v.background = createRoundedBg("#114254", ACCENT_TEAL, 2, 8)
                         v.scaleX = 1.05f
                         v.scaleY = 1.05f
+                        val cwHeroItem = MediaItem(
+                            title = item.title,
+                            url = item.pageUrl,
+                            posterUrl = item.posterUrl,
+                            rating = "",
+                            episodeOrQuality = if (item.episodeLabel.isNotBlank()) item.episodeLabel else "BAKI ${item.remainingMinutes}M",
+                            genre = item.genre,
+                            isSeries = item.episodeLabel.isNotBlank(),
+                            source = if (Watch32Scraper.isWatch32Uri(item.pageUrl)) "WATCH32" else "LK21",
+                            statusBadge = "WATCHED ${item.progressPercent}%"
+                        )
+                        scheduleHeroSpotlight(cwHeroItem)
                     } else {
                         v.background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 8)
                         v.scaleX = 1.0f
@@ -751,6 +1105,7 @@ class MainActivity : Activity() {
                         v.background = createRoundedBg("#114254", ACCENT_TEAL, 2, 8)
                         v.scaleX = 1.05f
                         v.scaleY = 1.05f
+                        scheduleHeroSpotlight(item)
                     } else {
                         v.background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 8)
                         v.scaleX = 1.0f
@@ -870,6 +1225,7 @@ class MainActivity : Activity() {
                         v.background = createRoundedBg("#114254", ACCENT_TEAL, 2, 8)
                         v.scaleX = 1.05f
                         v.scaleY = 1.05f
+                        scheduleHeroSpotlight(item)
                     } else {
                         v.background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 8)
                         v.scaleX = 1.0f
@@ -877,9 +1233,11 @@ class MainActivity : Activity() {
                     }
                 }
                 setOnClickListener {
+                    scheduleHeroSpotlight(item, delayMs = 0L)
                     onItemClicked(item, playImmediately = !item.isSeries)
                 }
                 setOnLongClickListener {
+                    scheduleHeroSpotlight(item, delayMs = 0L)
                     onItemClicked(item, playImmediately = false)
                     true
                 }
@@ -971,11 +1329,16 @@ class MainActivity : Activity() {
         UserRecommendationManager.recordView(this, item.genre, item.url, weightBoost = 1)
 
         if (playImmediately && !item.isSeries) {
+            val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) {
+                "W32 • Cinezo (No Ads)"
+            } else {
+                "P2P Direct"
+            }
             launchVideoPlayer(
                 pageUrl = item.url,
                 embedUrl = "",
                 title = item.title,
-                serverName = "P2P Direct",
+                serverName = defaultSrv,
                 posterUrl = item.posterUrl,
                 genre = item.genre
             )
@@ -987,10 +1350,35 @@ class MainActivity : Activity() {
 
         executor.execute {
             try {
-                val detail = LK21Scraper.fetchDetail(baseUrl, item.url)
+                val detail: MediaDetail = if (Watch32Scraper.isWatch32Uri(item.url)) {
+                    Watch32Scraper.fetchDetail(item.url)
+                } else {
+                    val lkDetail = try {
+                        LK21Scraper.fetchDetail(baseUrl, item.url)
+                    } catch (_: Exception) {
+                        null
+                    }
+                    if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
+                        val mergedMirrors = lkDetail.mirrors.toMutableList()
+                        val w32Backups = Watch32Scraper.findBackupMirrorsForLk21(
+                            rawTitle = lkDetail.title,
+                            isSeries = lkDetail.episodes.isNotEmpty() || item.isSeries
+                        )
+                        w32Backups.forEach { bm ->
+                            if (mergedMirrors.none { it.embedUrl == bm.embedUrl }) {
+                                mergedMirrors.add(bm)
+                            }
+                        }
+                        lkDetail.copy(mirrors = mergedMirrors)
+                    } else {
+                        Watch32Scraper.findFallbackDetail(item.title, preferSeries = item.isSeries)
+                            ?: throw IllegalStateException("Pelayan tidak dapat dihubungi")
+                    }
+                }
+
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    statusText.text = "Sedia: ${detail.title}"
+                    statusText.text = "Sedia (${detail.source}): ${detail.title}"
                     if (playImmediately && detail.episodes.isEmpty()) {
                         launchVideoPlayer(
                             pageUrl = detail.url,
@@ -1008,11 +1396,12 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
+                    val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) "W32 • Cinezo (No Ads)" else "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = item.url,
                         embedUrl = "",
                         title = item.title,
-                        serverName = "P2P Direct",
+                        serverName = defaultSrv,
                         posterUrl = item.posterUrl,
                         genre = item.genre
                     )
@@ -1109,11 +1498,12 @@ class MainActivity : Activity() {
             detail.episodes.forEach { ep ->
                 val epBtn = createSleekButton(ep.label.uppercase(), isPrimary = false) {
                     dialog.dismiss()
+                    val epSrv = if (Watch32Scraper.isWatch32Uri(ep.url)) "W32 • Cinezo (No Ads)" else "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = ep.url,
                         embedUrl = "",
                         title = "${detail.title} • ${ep.label}",
-                        serverName = "P2P Direct",
+                        serverName = epSrv,
                         posterUrl = detail.posterUrl,
                         genre = detail.genre,
                         episodeLabel = ep.label
@@ -1258,12 +1648,25 @@ class MainActivity : Activity() {
             .show()
     }
 
-    private fun loadImageAsync(url: String, imageView: ImageView) {
-        if (url.isBlank()) return
+    private fun loadImageAsync(
+        url: String,
+        imageView: ImageView,
+        crossfade: Boolean = false,
+        onLoaded: ((Boolean) -> Unit)? = null
+    ) {
+        if (url.isBlank()) {
+            onLoaded?.invoke(false)
+            return
+        }
         imageView.tag = url
         val cached = imageCache.get(url)
         if (cached != null) {
             imageView.setImageBitmap(cached)
+            if (crossfade) {
+                imageView.alpha = 0.45f
+                imageView.animate().alpha(1f).setDuration(180).start()
+            }
+            onLoaded?.invoke(true)
             return
         }
 
@@ -1273,20 +1676,34 @@ class MainActivity : Activity() {
                     connectTimeout = 8000
                     readTimeout = 8000
                     setRequestProperty("User-Agent", "Mozilla/5.0")
-                    setRequestProperty("Referer", baseUrl)
+                    if (!url.contains("tmdb.org")) {
+                        setRequestProperty("Referer", baseUrl)
+                    }
+                }
+                val isPng = url.lowercase().endsWith(".png")
+                val opts = BitmapFactory.Options().apply {
+                    inPreferredConfig = if (isPng) Bitmap.Config.ARGB_8888 else Bitmap.Config.RGB_565
                 }
                 conn.inputStream.use { stream ->
-                    val bmp = BitmapFactory.decodeStream(stream)
+                    val bmp = BitmapFactory.decodeStream(stream, null, opts)
                     if (bmp != null) {
                         imageCache.put(url, bmp)
                         mainHandler.post {
                             if (imageView.tag == url) {
                                 imageView.setImageBitmap(bmp)
+                                if (crossfade) {
+                                    imageView.alpha = 0.35f
+                                    imageView.animate().alpha(1f).setDuration(220).start()
+                                }
+                                onLoaded?.invoke(true)
                             }
                         }
+                    } else {
+                        mainHandler.post { onLoaded?.invoke(false) }
                     }
                 }
             } catch (_: Exception) {
+                mainHandler.post { onLoaded?.invoke(false) }
             }
         }
     }
