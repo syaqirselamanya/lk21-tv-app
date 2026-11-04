@@ -56,7 +56,7 @@ object AppUpdateManager {
                 if (conn.responseCode != 200) {
                     if (isManual) {
                         mainHandler.post {
-                            Toast.makeText(activity, "Gagal menyemak pelayan kemas kini.", Toast.LENGTH_SHORT).show()
+                            Toast.makeText(activity, "Failed to check update server.", Toast.LENGTH_SHORT).show()
                         }
                     }
                     return@execute
@@ -80,14 +80,14 @@ object AppUpdateManager {
 
                 // 2. Semakan Versi Aplikasi Phone
                 val remoteVersionCode = obj.optInt("versionCode", 0)
-                val remoteVersionName = obj.optString("versionName", "Terkini")
+                val remoteVersionName = obj.optString("versionName", "Latest")
                 val cleanRemoteVer = remoteVersionName.replace(Regex("[^a-zA-Z0-9._-]"), "")
                 val defaultApkName = if (cleanRemoteVer.isNotBlank()) "citeraloka-phone${cleanRemoteVer}.apk" else "citeraloka-phone.apk"
                 val apkUrl = obj.optString(
                     "apkUrl",
                     "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/$defaultApkName"
                 )
-                val changelog = obj.optString("changelog", "Kemas kini prestasi dan kestabilan penstriman mudah alih.")
+                val changelog = obj.optString("changelog", "Performance and mobile streaming stability improvements.")
 
                 val packageInfo = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
                     activity.packageManager.getPackageInfo(activity.packageName, PackageManager.PackageInfoFlags.of(0))
@@ -109,7 +109,7 @@ object AppUpdateManager {
                     } else if (isManual) {
                         Toast.makeText(
                             activity,
-                            "CiteraLoka Phone v${packageInfo.versionName} adalah versi terkini.",
+                            "CiteraLoka Phone v${packageInfo.versionName} is up to date.",
                             Toast.LENGTH_LONG
                         ).show()
                     }
@@ -117,7 +117,7 @@ object AppUpdateManager {
             } catch (e: Exception) {
                 if (isManual) {
                     mainHandler.post {
-                        Toast.makeText(activity, "Ralat semakan: ${e.message}", Toast.LENGTH_SHORT).show()
+                        Toast.makeText(activity, "Update check failed: ${e.message}", Toast.LENGTH_SHORT).show()
                     }
                 }
             }
@@ -146,7 +146,7 @@ object AppUpdateManager {
         }
 
         val title = TextView(activity).apply {
-            text = "KEMAS KINI BAHARU"
+            text = "UPDATE AVAILABLE"
             setTextColor(Color.parseColor("#00D4B2"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
@@ -174,11 +174,11 @@ object AppUpdateManager {
             gravity = Gravity.END
         }
 
-        val dismissBtn = createBoxButton(activity, "KEMUDIAN", isPrimary = false) {
+        val dismissBtn = createBoxButton(activity, "LATER", isPrimary = false) {
             dialog.dismiss()
         }
 
-        val updateBtn = createBoxButton(activity, "PASANG SEKARANG", isPrimary = true) {
+        val updateBtn = createBoxButton(activity, "INSTALL NOW", isPrimary = true) {
             dialog.dismiss()
             startDownloadAndInstall(activity, apkUrl, newVersionName)
         }
@@ -217,7 +217,7 @@ object AppUpdateManager {
         }
 
         val title = TextView(activity).apply {
-            text = "Memuat turun $apkFileName..."
+            text = "Downloading $apkFileName..."
             setTextColor(Color.parseColor("#F0FDFA"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
@@ -307,7 +307,7 @@ object AppUpdateManager {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressDialog.dismiss()
-                    Toast.makeText(activity, "Gagal memuat turun: ${e.message}", Toast.LENGTH_LONG).show()
+                    Toast.makeText(activity, "Download failed: ${e.message}", Toast.LENGTH_LONG).show()
                 }
             }
         }
@@ -322,7 +322,7 @@ object AppUpdateManager {
             }
             context.startActivity(intent)
         } catch (e: Exception) {
-            Toast.makeText(context, "Ralat pemasangan: ${e.message}", Toast.LENGTH_LONG).show()
+            Toast.makeText(context, "Install error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
 

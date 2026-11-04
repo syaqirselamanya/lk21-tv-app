@@ -143,7 +143,7 @@ class PlayerActivity : Activity() {
             }
         }
         loadingStatusText = TextView(this).apply {
-            text = "MEMUATKAN STRIM HD..."
+            text = "LOADING HD STREAM..."
             setTextColor(Color.parseColor("#00D4B2"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
@@ -211,7 +211,7 @@ class PlayerActivity : Activity() {
             )
         }
 
-        val backBtn = createOsdButton("KEMBALI", isAccent = false) { finish() }
+        val backBtn = createOsdButton("BACK", isAccent = false) { finish() }
 
         titleTextView = TextView(this).apply {
             text = currentTitle.uppercase()
@@ -225,7 +225,7 @@ class PlayerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        episodeListBtn = createOsdButton("EPISOD", isAccent = false) {
+        episodeListBtn = createOsdButton("EPISODES", isAccent = false) {
             showEpisodeSwitchDialog()
         }.apply {
             visibility = View.GONE
@@ -345,7 +345,7 @@ class PlayerActivity : Activity() {
         speedBtn = createOsdButton("1.0x", isAccent = false) { cyclePlaybackSpeed() }
         aspectBtn = createOsdButton("FIT", isAccent = false) { cycleAspectRatio() }
 
-        val hideOsdBtn = createOsdButton("TUTUP", isAccent = false) {
+        val hideOsdBtn = createOsdButton("CLOSE", isAccent = false) {
             osdContainer.visibility = View.GONE
         }
 
@@ -370,7 +370,7 @@ class PlayerActivity : Activity() {
 
     private fun startStreamResolution(targetPageUrl: String, targetEmbedUrl: String, serverLabel: String) {
         loadingOverlay.visibility = View.VISIBLE
-        loadingStatusText.text = "MEMUATKAN ($serverLabel)..."
+        loadingStatusText.text = "LOADING ($serverLabel)..."
         serverBadgeBtn.text = "SERVER: $serverLabel"
 
         executor.execute {
@@ -469,7 +469,7 @@ class PlayerActivity : Activity() {
                 }
 
                 if (embedToResolve.isBlank()) {
-                    throw IllegalStateException("Tiada pelayan aktif ditemui")
+                    throw IllegalStateException("No active stream server found")
                 }
 
                 currentEmbedUrl = embedToResolve
@@ -484,7 +484,7 @@ class PlayerActivity : Activity() {
                     serverBadgeBtn.text = "SERVER: ${resolved.serverName}"
                     episodeListBtn.visibility = if (episodes.isNotEmpty()) View.VISIBLE else View.GONE
                     if (usedWatch32Fallback) {
-                        showCenterToast("AUTO-FALLBACK: SERVER WATCH32 AKTIF")
+                        showCenterToast("AUTO-FALLBACK: WATCH32 SERVER ACTIVE")
                     }
 
                     when {
@@ -498,7 +498,7 @@ class PlayerActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     loadingOverlay.visibility = View.GONE
-                    showCenterToast("RALAT PELAYAN. SILA TUKAR SERVER.")
+                    showCenterToast("STREAM ERROR. PLEASE SWITCH SERVER.")
                 }
             }
         }
@@ -750,7 +750,7 @@ class PlayerActivity : Activity() {
                 // Jika pengguna membuka dari 'Sambung Menonton', sambung ke detik terakhir
                 if (resumeSec > 0) {
                     seekToSeconds(resumeSec)
-                    showCenterToast("SAMBUNG: ${formatTime(resumeSec)}")
+                    showCenterToast("RESUMED AT ${formatTime(resumeSec)}")
                     resumeSec = 0
                 }
             }
@@ -921,22 +921,22 @@ class PlayerActivity : Activity() {
             null
         )
         aspectBtn.text = label
-        showCenterToast("SKRIN: $label")
+        showCenterToast("ASPECT: $label")
     }
 
     private fun showServerSwitchDialog() {
         if (mirrors.isEmpty()) {
-            showCenterToast("TIADA SERVER ALTERNATIF")
+            showCenterToast("NO ALTERNATE SERVERS")
             return
         }
         val names = mirrors.map { "SERVER: ${it.name}" }.toTypedArray()
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("TUKAR SERVER")
+            .setTitle("SWITCH SERVER")
             .setItems(names) { _, which ->
                 val chosen = mirrors[which]
                 startStreamResolution(pageUrl, chosen.embedUrl, chosen.name)
             }
-            .setNegativeButton("BATAL", null)
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 
@@ -944,7 +944,7 @@ class PlayerActivity : Activity() {
         if (episodes.isEmpty()) return
         val names = episodes.map { it.label }.toTypedArray()
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("PILIH EPISOD")
+            .setTitle("SELECT EPISODE")
             .setItems(names) { _, which ->
                 val ep = episodes[which]
                 pageUrl = ep.url
@@ -957,7 +957,7 @@ class PlayerActivity : Activity() {
                 }
                 startStreamResolution(ep.url, "", defaultLabel)
             }
-            .setNegativeButton("BATAL", null)
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 

@@ -70,7 +70,7 @@ class MainActivity : Activity() {
 
     private var currentPage = 1
     private var currentPath = "/latest"
-    private var currentCategoryLabel = "TERBARU"
+    private var currentCategoryLabel = "LATEST"
     private var allLoadedItems = mutableListOf<MediaItem>()
     private var activeHeroItem: MediaItem? = null
     private var pendingHeroRunnable: Runnable? = null
@@ -81,21 +81,20 @@ class MainActivity : Activity() {
         get() = prefs.getString("base_url", "https://tv12.lk21official.cc") ?: "https://tv12.lk21official.cc"
         set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
 
-    // Mod Sumber: "AUTO" (Gabungan Pintar + Auto-Fallback), "LK21", atau "WATCH32"
     private var sourceMode: String
         get() = prefs.getString("source_mode", "AUTO") ?: "AUTO"
         set(value) = prefs.edit().putString("source_mode", value).apply()
 
-    // Senarai Kategori Minimalis (Box & Name sahaja, tiada emoji)
+    // Minimalist Category List (Box & Name only, no emojis, 100% English)
     private val categories = listOf(
-        "TERBARU" to "/latest",
-        "UTAMA" to "/",
-        "UNGGULAN" to "/top-movie-today",
-        "POPULER" to "/populer",
-        "SIRI TV" to "/latest-series",
+        "LATEST" to "/latest",
+        "HOME" to "/",
+        "FEATURED" to "/top-movie-today",
+        "POPULAR" to "/populer",
+        "TV SERIES" to "/latest-series",
         "2026" to "/year/2026",
-        "BARAT" to "/country/usa",
-        "KOREA" to "/country/south-korea",
+        "WESTERN" to "/country/usa",
+        "KOREAN" to "/country/south-korea",
         "ACTION" to "/genre/action",
         "HORROR" to "/genre/horror",
         "SCI-FI" to "/genre/sci-fi"
@@ -189,12 +188,12 @@ class MainActivity : Activity() {
             })
         }
 
-        topBar.addView(createCategoryBox("CARIAN") { showSearchDialog() })
+        topBar.addView(createCategoryBox("SEARCH") { showSearchDialog() })
         val domainBtn = createCategoryBox("DOMAIN") { showDomainDialog() }.apply {
             visibility = View.GONE
         }
         topBar.addView(domainBtn)
-        topBar.addView(createCategoryBox("KEMAS KINI") {
+        topBar.addView(createCategoryBox("UPDATE") {
             AppUpdateManager.checkUpdate(this, isManual = true)
         })
 
@@ -262,7 +261,7 @@ class MainActivity : Activity() {
         }
 
         sectionTitleView = TextView(this).apply {
-            text = "KANDUNGAN: $currentCategoryLabel"
+            text = currentCategoryLabel
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -277,7 +276,7 @@ class MainActivity : Activity() {
         }
 
         statusText = TextView(this).apply {
-            text = "Memuatkan..."
+            text = "Loading..."
             setTextColor(Color.parseColor(TEXT_MUTED))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
@@ -287,26 +286,26 @@ class MainActivity : Activity() {
         headerRow.addView(statusText)
         contentColumn.addView(headerRow)
 
-        // 5. Grid Kad Poster Utama
+        // 5. Poster Card Grid
         gridContainer = GridLayout(this).apply {
             columnCount = 5
             useDefaultMargins = true
         }
         contentColumn.addView(gridContainer)
 
-        // 6. Navigasi Halaman (Minimal Box Text)
+        // 6. Pagination Navigation (Minimal Box Text)
         val paginationRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, dp(22), 0, dp(20))
         }
-        paginationRow.addView(createSleekButton("SEBELUM", isPrimary = false) {
+        paginationRow.addView(createSleekButton("PREVIOUS", isPrimary = false) {
             if (currentPage > 1) {
                 currentPage--
                 loadCatalog(currentPath, currentPage)
             }
         })
-        paginationRow.addView(createSleekButton("SETERUSNYA", isPrimary = true) {
+        paginationRow.addView(createSleekButton("NEXT", isPrimary = true) {
             currentPage++
             loadCatalog(currentPath, currentPage)
         })
@@ -416,28 +415,28 @@ class MainActivity : Activity() {
 
     private fun getSourceModeButtonLabel(): String {
         return when (sourceMode) {
-            "LK21" -> "SUMBER: LK21"
-            "WATCH32" -> "SUMBER: WATCH32"
-            else -> "SUMBER: AUTO"
+            "LK21" -> "SOURCE: LK21"
+            "WATCH32" -> "SOURCE: WATCH32"
+            else -> "SOURCE: AUTO"
         }
     }
 
     private fun showSourceModeDialog() {
         val options = arrayOf(
-            "GABUNGAN PINTAR (AUTO-FALLBACK + CARIAN 2 SERVER)",
-            "LAYARKACA21 UTAMA (SUB INDO + SANDARAN WATCH32)",
-            "WATCH32 GLOBAL (KATALOG PENUH TMDB + MULTI-SERVER)"
+            "SMART COMBINED (AUTO-FALLBACK + DUAL CATALOG)",
+            "PRIMARY SERVER (WITH WATCH32 BACKUP)",
+            "WATCH32 GLOBAL (FULL TMDB CATALOG + MULTI-SERVER)"
         )
         val modes = arrayOf("AUTO", "LK21", "WATCH32")
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("PILIH SUMBER KANDUNGAN")
+            .setTitle("SELECT CONTENT SOURCE")
             .setItems(options) { _, which ->
                 sourceMode = modes[which]
                 sourceModeBtn.text = getSourceModeButtonLabel()
                 currentPage = 1
                 loadCatalog(currentPath, currentPage)
             }
-            .setNegativeButton("BATAL", null)
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 
@@ -450,8 +449,8 @@ class MainActivity : Activity() {
     private fun loadCatalog(path: String, page: Int) {
         val mode = sourceMode
         progressBar.visibility = View.VISIBLE
-        sectionTitleView.text = "KANDUNGAN: $currentCategoryLabel  •  HALAMAN $page"
-        statusText.text = "Memuatkan ($mode)..."
+        sectionTitleView.text = "$currentCategoryLabel  •  PAGE $page"
+        statusText.text = "Loading..."
         gridContainer.removeAllViews()
 
         executor.execute {
@@ -524,13 +523,13 @@ class MainActivity : Activity() {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     if (combined.isEmpty()) {
-                        statusText.text = "Tiada kandungan ditemui."
+                        statusText.text = "No titles found."
                     } else {
                         statusText.text = when {
-                            usedAutoFallback -> "AUTO-FALLBACK WATCH32  •  ${combined.size} TAJUK"
-                            mode == "WATCH32" -> "WATCH32 GLOBAL  •  ${combined.size} TAJUK"
-                            mode == "LK21" -> "LK21  •  ${combined.size} TAJUK"
-                            else -> "LK21 + WATCH32  •  ${combined.size} TAJUK"
+                            usedAutoFallback -> "WATCH32 AUTO-FALLBACK  •  ${combined.size} TITLES"
+                            mode == "WATCH32" -> "WATCH32 GLOBAL  •  ${combined.size} TITLES"
+                            mode == "LK21" -> "LK21  •  ${combined.size} TITLES"
+                            else -> "${combined.size} TITLES"
                         }
                         allLoadedItems.clear()
                         allLoadedItems.addAll(combined)
@@ -546,20 +545,19 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    statusText.text = "Ralat: ${e.message}"
+                    statusText.text = "Error: ${e.message}"
                 }
             }
         }
     }
 
     /**
-     * Live Hero Spotlight (Inspirasi Nuvio Android TV - Tema Dark Teal Tanpa Emoji)
-     * Berada di bahagian atas halaman skrol (ikut naik ke atas apabila pengguna skrol ke bawah)
-     * dan bertukar secara live mengikut fokus kad remote/sentuhan!
+     * Live Hero Spotlight (Expanded Cinematic Height - Dark Teal, No Emojis, 100% English)
+     * Scrolls up naturally when scrolling down the catalog.
      */
     private fun buildPinnedHeroSpotlightStage(): FrameLayout {
         val dm = resources.displayMetrics
-        val stageHeight = (dm.heightPixels * 0.46f).toInt().coerceIn(dp(185), dp(270))
+        val stageHeight = (dm.heightPixels * 0.64f).toInt().coerceIn(dp(290), dp(395))
         val isCompactHeight = dm.heightPixels < dp(460)
 
         val stage = FrameLayout(this).apply {
@@ -570,8 +568,8 @@ class MainActivity : Activity() {
             )
         }
 
-        // Lapisan 1: 16:9 Widescreen Backdrop di sebelah kanan
-        val backdropWidth = (dm.widthPixels * 0.72f).toInt()
+        // Layer 1: 16:9 Widescreen Backdrop on the right
+        val backdropWidth = (dm.widthPixels * 0.75f).toInt()
         heroBackdropView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.parseColor(BG_DEEP_TEAL))
@@ -583,7 +581,7 @@ class MainActivity : Activity() {
         }
         stage.addView(heroBackdropView)
 
-        // Lapisan 2A: Vignette Kiri-ke-Kanan (supaya teks & ClearLogo jelas di atas backdrop)
+        // Layer 2A: Left-to-Right Vignette
         val leftVignette = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.LEFT_RIGHT,
@@ -602,25 +600,25 @@ class MainActivity : Activity() {
         }
         stage.addView(leftVignette)
 
-        // Lapisan 2B: Vignette Bawah-ke-Atas (cantuman halus dengan ruang skrol katalog)
+        // Layer 2B: Bottom-to-Top Vignette
         val bottomVignette = View(this).apply {
             background = GradientDrawable(
                 GradientDrawable.Orientation.BOTTOM_TOP,
                 intArrayOf(
                     Color.parseColor("#FF031117"),
-                    Color.parseColor("#99031117"),
+                    Color.parseColor("#A6031117"),
                     Color.TRANSPARENT
                 )
             )
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(52),
+                dp(76),
                 Gravity.BOTTOM
             )
         }
         stage.addView(bottomVignette)
 
-        // Garis Pemisah Nipis Subtle Teal di Bawah Stage
+        // Subtle Teal Divider at Bottom of Hero Stage
         val bottomDivider = View(this).apply {
             setBackgroundColor(Color.parseColor(BORDER_SUBTLE_TEAL))
             layoutParams = FrameLayout.LayoutParams(
@@ -631,87 +629,87 @@ class MainActivity : Activity() {
         }
         stage.addView(bottomDivider)
 
-        // Lapisan 3: Kolum Maklumat Live & Official ClearLogo PNG di Sebelah Kiri
-        val infoWidth = (dm.widthPixels * 0.60f).toInt().coerceAtLeast(dp(300))
+        // Layer 3: Live Info Column & Official ClearLogo PNG on the Left
+        val infoWidth = (dm.widthPixels * 0.62f).toInt().coerceAtLeast(dp(320))
         val infoCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(dp(28), dp(10), dp(16), dp(12))
+            gravity = Gravity.BOTTOM
+            setPadding(dp(30), dp(18), dp(18), dp(22))
             layoutParams = FrameLayout.LayoutParams(
                 infoWidth,
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                Gravity.START or Gravity.CENTER_VERTICAL
+                Gravity.START or Gravity.BOTTOM
             )
         }
 
-        // Official ClearLogo PNG (daripada TMDB)
+        // Official ClearLogo PNG (from TMDB)
         heroLogoView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_START
             adjustViewBounds = true
-            maxWidth = dp(240)
-            maxHeight = if (isCompactHeight) dp(42) else dp(56)
+            maxWidth = dp(285)
+            maxHeight = if (isCompactHeight) dp(52) else dp(72)
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
-                dp(230),
-                if (isCompactHeight) dp(42) else dp(56)
+                dp(275),
+                if (isCompactHeight) dp(52) else dp(70)
             ).apply {
-                bottomMargin = dp(6)
+                bottomMargin = dp(8)
             }
         }
         infoCol.addView(heroLogoView)
 
-        // Fallback Tajuk Teks Bergaya (dipaparkan jika tiada ClearLogo PNG atau semasa memuatkan)
+        // Stylized Text Title Fallback
         heroTitleView = TextView(this).apply {
             text = "CITERALOKA"
             setTextColor(Color.parseColor(TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 19f else 24f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 22f else 28f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            setPadding(0, 0, 0, dp(4))
+            setPadding(0, 0, 0, dp(5))
         }
         infoCol.addView(heroTitleView)
 
-        // Baris Metadata: Genre • Durasi • Tarikh Tayangan
+        // Metadata Row: Genre • Runtime • Release Date
         heroMetaView = TextView(this).apply {
-            text = "Memuatkan maklumat..."
+            text = "Loading details..."
             setTextColor(Color.parseColor(TEXT_SECONDARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            setPadding(0, 0, 0, dp(6))
+            setPadding(0, 0, 0, dp(8))
         }
         infoCol.addView(heroMetaView)
 
-        // Baris Lencana Minimalis (Status, Kualiti, IMDb, Sumber - Tanpa Emoji)
+        // Minimalist Pill Badges Row (Status, Quality, IMDb, Source - No Emojis)
         heroBadgeRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(6))
+            setPadding(0, 0, 0, dp(8))
         }
         infoCol.addView(heroBadgeRow)
 
-        // Sinopsis Ringkas (2-3 Baris)
+        // Synopsis (3-4 Lines)
         heroPlotView = TextView(this).apply {
             text = ""
             setTextColor(Color.parseColor("#D5F5F0"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 11f else 12f)
-            maxLines = if (isCompactHeight) 2 else 3
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 11.5f else 13f)
+            maxLines = if (isCompactHeight) 3 else 4
             ellipsize = TextUtils.TruncateAt.END
-            setLineSpacing(0f, 1.15f)
-            setPadding(0, 0, 0, dp(8))
+            setLineSpacing(0f, 1.18f)
+            setPadding(0, 0, 0, dp(14))
         }
         infoCol.addView(heroPlotView)
 
-        // Baris Tindakan Pantas (untuk sentuhan atau navigasi ke atas)
+        // Quick Action Row
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val playHeroBtn = createCompactHeroButton("MAIN SEKARANG", isPrimary = true) {
+        val playHeroBtn = createCompactHeroButton("PLAY NOW", isPrimary = true) {
             activeHeroItem?.let { onItemClicked(it, playImmediately = !it.isSeries) }
         }
         val infoHeroBtn = createCompactHeroButton("INFO & SERVER", isPrimary = false) {
@@ -736,20 +734,20 @@ class MainActivity : Activity() {
             text = label
             isAllCaps = true
             setTextColor(Color.parseColor(TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.06f
             isFocusable = true
             isFocusableInTouchMode = false
-            background = createRoundedBg(normalBg, normalBorder, 1, 5)
-            setPadding(dp(14), dp(6), dp(14), dp(6))
+            background = createRoundedBg(normalBg, normalBorder, 1, 6)
+            setPadding(dp(18), dp(8), dp(18), dp(8))
             minHeight = 0
             minimumHeight = 0
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                rightMargin = dp(8)
+                rightMargin = dp(10)
             }
             setOnFocusChangeListener { v, hasFocus ->
                 if (hasFocus) {
@@ -797,7 +795,7 @@ class MainActivity : Activity() {
         val initialMeta = listOf(
             item.genre.replace(",", " •").trim(),
             item.releaseInfo
-        ).filter { it.isNotBlank() }.joinToString("  •  ").ifBlank { "Strim Definisi Tinggi  •  Bebas Iklan" }
+        ).filter { it.isNotBlank() }.joinToString("  •  ").ifBlank { "HD Streaming  •  Ad-Free" }
         heroMetaView.text = initialMeta
 
         renderHeroBadges(
@@ -807,7 +805,7 @@ class MainActivity : Activity() {
             source = item.source
         )
 
-        heroPlotView.text = item.plot.ifBlank { "Memuatkan sinopsis & maklumat penuh cerita..." }
+        heroPlotView.text = item.plot.ifBlank { "Loading synopsis and full details..." }
 
         val initialBackdrop = item.backdropUrl.ifBlank { item.posterUrl }
         if (initialBackdrop.isNotBlank()) {
@@ -894,7 +892,7 @@ class MainActivity : Activity() {
         }
 
         val sectionTitle = TextView(this).apply {
-            text = "SAMBUNG MENONTON"
+            text = "CONTINUE WATCHING"
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             typeface = Typeface.DEFAULT_BOLD
@@ -903,7 +901,7 @@ class MainActivity : Activity() {
         }
 
         val countText = TextView(this).apply {
-            text = "${historyList.size} TAJUK DALAM PROGRES"
+            text = "${historyList.size} IN PROGRESS"
             setTextColor(Color.parseColor(TEXT_MUTED))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
         }
@@ -940,7 +938,7 @@ class MainActivity : Activity() {
                             url = item.pageUrl,
                             posterUrl = item.posterUrl,
                             rating = "",
-                            episodeOrQuality = if (item.episodeLabel.isNotBlank()) item.episodeLabel else "BAKI ${item.remainingMinutes}M",
+                            episodeOrQuality = if (item.episodeLabel.isNotBlank()) item.episodeLabel else "${item.remainingMinutes}M LEFT",
                             genre = item.genre,
                             isSeries = item.episodeLabel.isNotBlank(),
                             source = if (Watch32Scraper.isWatch32Uri(item.pageUrl)) "WATCH32" else "LK21",
@@ -1011,9 +1009,9 @@ class MainActivity : Activity() {
             // Badge Masa Berbaki / Episod
             val badgeView = TextView(this).apply {
                 text = if (item.episodeLabel.isNotBlank()) {
-                    item.episodeLabel.uppercase()
+                    item.episodeLabel.replace(Regex("(?i)episod(e)?"), "EP").uppercase()
                 } else if (item.remainingMinutes > 0) {
-                    "BAKI ${item.remainingMinutes}M"
+                    "${item.remainingMinutes}M LEFT"
                 } else {
                     "${item.progressPercent}%"
                 }
@@ -1043,7 +1041,7 @@ class MainActivity : Activity() {
             }
 
             val resumeActionText = TextView(this).apply {
-                text = "SAMBUNG (${formatTime(item.currentSec)})"
+                text = "RESUME (${formatTime(item.currentSec)})"
                 setTextColor(Color.parseColor(ACCENT_TEAL))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -1083,7 +1081,7 @@ class MainActivity : Activity() {
         }
 
         val titleView = TextView(this).apply {
-            text = "DISYORKAN UNTUK ANDA"
+            text = "RECOMMENDED FOR YOU"
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             typeface = Typeface.DEFAULT_BOLD
@@ -1092,7 +1090,7 @@ class MainActivity : Activity() {
         }
 
         val subInfo = TextView(this).apply {
-            text = "PADANAN KEGEMARAN ANDA"
+            text = "TOP PICKS FOR YOU"
             setTextColor(Color.parseColor(TEXT_MUTED))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             letterSpacing = 0.05f
@@ -1175,7 +1173,7 @@ class MainActivity : Activity() {
             }
 
             val recBadge = TextView(this).apply {
-                text = "PILIHAN"
+                text = "TOP PICK"
                 setTextColor(Color.parseColor(BG_DEEP_TEAL))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 9f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -1202,7 +1200,7 @@ class MainActivity : Activity() {
             }
 
             val subAction = TextView(this).apply {
-                text = if (item.isSeries) "PILIH EPISOD" else "MAIN SEKARANG"
+                text = if (item.isSeries) "EPISODES" else "PLAY NOW"
                 setTextColor(Color.parseColor(TEXT_MUTED))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
                 setPadding(dp(4), dp(2), dp(4), 0)
@@ -1329,7 +1327,7 @@ class MainActivity : Activity() {
             }
 
             val subActionView = TextView(this).apply {
-                text = if (item.isSeries) "PILIH EPISOD" else "MAIN SEKARANG"
+                text = if (item.isSeries) "EPISODES" else "PLAY NOW"
                 setTextColor(Color.parseColor(TEXT_MUTED))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
                 setPadding(dp(4), dp(2), dp(4), 0)
@@ -1372,7 +1370,7 @@ class MainActivity : Activity() {
         }
 
         progressBar.visibility = View.VISIBLE
-        statusText.text = "Memuatkan maklumat: ${item.title}..."
+        statusText.text = "Loading: ${item.title}..."
 
         executor.execute {
             try {
@@ -1395,16 +1393,16 @@ class MainActivity : Activity() {
                                 mergedMirrors.add(bm)
                             }
                         }
-                        lkDetail.copy(mirrors = mergedMirrors)
+                        Watch32Scraper.enrichMovieDetail(lkDetail.copy(mirrors = mergedMirrors))
                     } else {
                         Watch32Scraper.findFallbackDetail(item.title, preferSeries = item.isSeries)
-                            ?: throw IllegalStateException("Pelayan tidak dapat dihubungi")
+                            ?: throw IllegalStateException("Server unreachable")
                     }
                 }
 
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    statusText.text = "Sedia (${detail.source}): ${detail.title}"
+                    statusText.text = "Ready (${detail.source}): ${detail.title}"
                     if (detail.episodes.isNotEmpty()) {
                         launchSeriesDetailPage(
                             item.copy(
@@ -1500,9 +1498,9 @@ class MainActivity : Activity() {
             orientation = LinearLayout.VERTICAL
         }
 
-        // 1. Butang Mainkan Terus
+        // 1. Direct Play Button
         if (!detail.mainEmbedUrl.isNullOrBlank()) {
-            val playBtn = createSleekButton("MAIN VIDEO SEKARANG", isPrimary = true) {
+            val playBtn = createSleekButton("PLAY NOW", isPrimary = true) {
                 dialog.dismiss()
                 launchVideoPlayer(
                     pageUrl = detail.url,
@@ -1523,10 +1521,10 @@ class MainActivity : Activity() {
             playBtn.requestFocus()
         }
 
-        // 2. Senarai Episod
+        // 2. Episode List
         if (detail.episodes.isNotEmpty()) {
             val epHeader = TextView(this).apply {
-                text = "SENARAI EPISOD (${detail.episodes.size} EPISOD):"
+                text = "EPISODES (${detail.episodes.size}):"
                 setTextColor(Color.parseColor(TEXT_MUTED))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -1558,10 +1556,10 @@ class MainActivity : Activity() {
             }
         }
 
-        // 3. Pilihan Server
+        // 3. Server Selection
         if (detail.mirrors.size > 1) {
             val srvHeader = TextView(this).apply {
-                text = "PILIHAN SERVER:"
+                text = "SELECT SERVER:"
                 setTextColor(Color.parseColor(TEXT_MUTED))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -1595,7 +1593,7 @@ class MainActivity : Activity() {
         listScroll.addView(optionsCol)
         modalRoot.addView(listScroll)
 
-        val closeBtn = createSleekButton("TUTUP", isPrimary = false) {
+        val closeBtn = createSleekButton("CLOSE", isPrimary = false) {
             dialog.dismiss()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -1665,24 +1663,24 @@ class MainActivity : Activity() {
 
     private fun showSearchDialog() {
         val input = EditText(this).apply {
-            hint = "Taip tajuk filem atau siri..."
+            hint = "Search movies or TV series..."
             setSingleLine(true)
             setTextColor(Color.WHITE)
             setHintTextColor(Color.GRAY)
         }
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("CARIAN KANDUNGAN")
+            .setTitle("SEARCH TITLES")
             .setView(input)
-            .setPositiveButton("CARI") { _, _ ->
+            .setPositiveButton("SEARCH") { _, _ ->
                 val q = input.text.toString().trim()
                 if (q.isNotEmpty()) {
                     currentPage = 1
-                    currentCategoryLabel = "CARIAN: $q"
+                    currentCategoryLabel = "SEARCH: $q"
                     currentPath = "/search?s=${URLEncoder.encode(q, "UTF-8")}"
                     loadCatalog(currentPath, currentPage)
                 }
             }
-            .setNegativeButton("BATAL", null)
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 
@@ -1693,10 +1691,10 @@ class MainActivity : Activity() {
             setTextColor(Color.WHITE)
         }
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("TETAPAN DOMAIN")
-            .setMessage("Kemas kini URL domain penstriman jika terdapat pertukaran domain:")
+            .setTitle("DOMAIN SETTINGS")
+            .setMessage("Update the primary streaming domain URL if needed:")
             .setView(input)
-            .setPositiveButton("SIMPAN") { _, _ ->
+            .setPositiveButton("SAVE") { _, _ ->
                 val newUrl = input.text.toString().trim()
                 if (newUrl.startsWith("http")) {
                     baseUrl = newUrl
@@ -1704,7 +1702,7 @@ class MainActivity : Activity() {
                     loadCatalog(currentPath, currentPage)
                 }
             }
-            .setNegativeButton("BATAL", null)
+            .setNegativeButton("CANCEL", null)
             .show()
     }
 

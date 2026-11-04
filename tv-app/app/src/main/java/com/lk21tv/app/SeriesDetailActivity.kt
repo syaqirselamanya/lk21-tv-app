@@ -67,7 +67,7 @@ class SeriesDetailActivity : Activity() {
 
         seriesUrl = intent.getStringExtra("PAGE_URL") ?: ""
         baseUrl = intent.getStringExtra("BASE_URL") ?: "https://tv12.lk21official.cc"
-        seriesTitle = intent.getStringExtra("TITLE") ?: "Siri TV"
+        seriesTitle = intent.getStringExtra("TITLE") ?: "TV Series"
         posterUrl = intent.getStringExtra("POSTER_URL") ?: ""
         backdropUrl = intent.getStringExtra("BACKDROP_URL") ?: ""
         logoUrl = intent.getStringExtra("LOGO_URL") ?: ""
@@ -129,7 +129,7 @@ class SeriesDetailActivity : Activity() {
 
         // Tajuk Seksyen Episod
         episodesHeaderTitle = TextView(this).apply {
-            text = "PILIHAN EPISOD"
+            text = "EPISODES"
             setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
@@ -150,7 +150,7 @@ class SeriesDetailActivity : Activity() {
             }
         }
         loadingStatusView = TextView(this).apply {
-            text = "Memuatkan senarai musim & episod..."
+            text = "Loading seasons and episodes..."
             setTextColor(Color.parseColor(MainActivity.TEXT_MUTED))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
@@ -189,7 +189,7 @@ class SeriesDetailActivity : Activity() {
 
     private fun buildTvSeriesHeroStage(): FrameLayout {
         val dm = resources.displayMetrics
-        val stageHeight = (dm.heightPixels * 0.54f).toInt().coerceIn(dp(235), dp(320))
+        val stageHeight = (dm.heightPixels * 0.68f).toInt().coerceIn(dp(310), dp(415))
 
         val stage = FrameLayout(this).apply {
             setBackgroundColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
@@ -200,7 +200,7 @@ class SeriesDetailActivity : Activity() {
         }
 
         // Lapisan 1: 16:9 Widescreen Backdrop
-        val backdropWidth = (dm.widthPixels * 0.74f).toInt()
+        val backdropWidth = (dm.widthPixels * 0.76f).toInt()
         heroBackdropView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.parseColor(MainActivity.BG_SURFACE_TEAL))
@@ -243,7 +243,7 @@ class SeriesDetailActivity : Activity() {
             )
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(68),
+                dp(84),
                 Gravity.BOTTOM
             )
         }
@@ -259,8 +259,8 @@ class SeriesDetailActivity : Activity() {
         }
         stage.addView(bottomDivider)
 
-        // Butang KEMBALI di Penjuru Kiri Atas
-        val backBtn = createTvActionButton("KEMBALI", isPrimary = false) {
+        // Butang BACK di Penjuru Kiri Atas
+        val backBtn = createTvActionButton("BACK", isPrimary = false) {
             finish()
         }.apply {
             layoutParams = FrameLayout.LayoutParams(
@@ -278,7 +278,7 @@ class SeriesDetailActivity : Activity() {
         val infoCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.BOTTOM
-            setPadding(dp(28), dp(54), dp(18), dp(18))
+            setPadding(dp(28), dp(58), dp(18), dp(22))
             layoutParams = FrameLayout.LayoutParams(
                 infoWidth,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -289,11 +289,11 @@ class SeriesDetailActivity : Activity() {
         heroLogoView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_START
             adjustViewBounds = true
-            maxWidth = dp(260)
-            maxHeight = dp(60)
+            maxWidth = dp(290)
+            maxHeight = dp(72)
             visibility = View.GONE
-            layoutParams = LinearLayout.LayoutParams(dp(250), dp(58)).apply {
-                bottomMargin = dp(6)
+            layoutParams = LinearLayout.LayoutParams(dp(275), dp(68)).apply {
+                bottomMargin = dp(8)
             }
         }
         infoCol.addView(heroLogoView)
@@ -301,7 +301,7 @@ class SeriesDetailActivity : Activity() {
         heroTitleView = TextView(this).apply {
             text = seriesTitle.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { seriesTitle }
             setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 26f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 28f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.03f
             maxLines = 1
@@ -311,7 +311,7 @@ class SeriesDetailActivity : Activity() {
         infoCol.addView(heroTitleView)
 
         heroMetaView = TextView(this).apply {
-            text = genre.replace(",", " •").ifBlank { "Siri Drama & Aksi HD" }
+            text = genre.replace(",", " •").ifBlank { "HD Series" }
             setTextColor(Color.parseColor(MainActivity.TEXT_SECONDARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             typeface = Typeface.DEFAULT_BOLD
@@ -329,13 +329,13 @@ class SeriesDetailActivity : Activity() {
         infoCol.addView(heroBadgeRow)
 
         heroPlotView = TextView(this).apply {
-            text = plot.ifBlank { "Memuatkan sinopsis penuh siri..." }
+            text = plot.ifBlank { "Loading series synopsis..." }
             setTextColor(Color.parseColor("#D5F5F0"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-            maxLines = 3
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
             setLineSpacing(0f, 1.15f)
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(14))
         }
         infoCol.addView(heroPlotView)
 
@@ -369,10 +369,12 @@ class SeriesDetailActivity : Activity() {
         heroBadgeRow.removeAllViews()
         heroBadgeRow.addView(createPillBadge("SERIES", MainActivity.ACCENT_TEAL, "#CC071F29", MainActivity.ACCENT_TEAL_DARK))
         if (seasonCount > 0) {
-            heroBadgeRow.addView(createPillBadge("$seasonCount MUSIM", MainActivity.TEXT_PRIMARY, MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL))
+            val sWord = if (seasonCount == 1) "SEASON" else "SEASONS"
+            heroBadgeRow.addView(createPillBadge("$seasonCount $sWord", MainActivity.TEXT_PRIMARY, MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL))
         }
         if (epCount > 0) {
-            heroBadgeRow.addView(createPillBadge("$epCount EPISOD", MainActivity.TEXT_PRIMARY, MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL))
+            val eWord = if (epCount == 1) "EPISODE" else "EPISODES"
+            heroBadgeRow.addView(createPillBadge("$epCount $eWord", MainActivity.TEXT_PRIMARY, MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL))
         }
         if (rating.isNotBlank()) {
             heroBadgeRow.addView(createPillBadge("IMDb $rating", "#FACC15", "#D904151F", MainActivity.BORDER_SUBTLE_TEAL))
@@ -415,7 +417,7 @@ class SeriesDetailActivity : Activity() {
                         Watch32Scraper.enrichSeriesDetail(lk)
                     } else {
                         Watch32Scraper.findFallbackDetail(seriesTitle, preferSeries = true)
-                            ?: throw IllegalStateException("Tiada senarai episod ditemui.")
+                            ?: throw IllegalStateException("No episodes found.")
                     }
                 }
 
@@ -440,8 +442,8 @@ class SeriesDetailActivity : Activity() {
                     val seasons = allEpisodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().sorted()
                     val metaParts = listOfNotNull(
                         genre.replace(",", " •").takeIf { it.isNotBlank() },
-                        if (seasons.isNotEmpty()) "${seasons.size} Musim" else null,
-                        if (allEpisodes.isNotEmpty()) "${allEpisodes.size} Episod" else null
+                        if (seasons.isNotEmpty()) "${seasons.size} ${if (seasons.size == 1) "Season" else "Seasons"}" else null,
+                        if (allEpisodes.isNotEmpty()) "${allEpisodes.size} ${if (allEpisodes.size == 1) "Episode" else "Episodes"}" else null
                     )
                     heroMetaView.text = metaParts.joinToString("  •  ")
                     renderHeroBadges(seasons.size, allEpisodes.size)
@@ -466,7 +468,7 @@ class SeriesDetailActivity : Activity() {
                 }
             } catch (e: Exception) {
                 mainHandler.post {
-                    loadingStatusView.text = "Gagal memuatkan episod: ${e.message}"
+                    loadingStatusView.text = "Failed to load episodes: ${e.message}"
                 }
             }
         }
@@ -486,9 +488,9 @@ class SeriesDetailActivity : Activity() {
 
         if (savedHistory != null) {
             val resumeLabel = if (savedHistory.episodeLabel.isNotBlank()) {
-                "SAMBUNG ${savedHistory.episodeLabel.substringBefore(" • ").uppercase()} (${formatTime(savedHistory.currentSec)})"
+                "RESUME ${savedHistory.episodeLabel.substringBefore(" • ").uppercase()} (${formatTime(savedHistory.currentSec)})"
             } else {
-                "SAMBUNG TONTON (${formatTime(savedHistory.currentSec)})"
+                "RESUME (${formatTime(savedHistory.currentSec)})"
             }
             val resumeBtn = createTvActionButton(resumeLabel, isPrimary = true) {
                 launchPlayer(
@@ -499,14 +501,14 @@ class SeriesDetailActivity : Activity() {
                     resumeSec = savedHistory.currentSec
                 )
             }
-            val ep1Btn = createTvActionButton("MAIN S${firstEp.seasonNumber}:E${firstEp.episodeNumber}", isPrimary = false) {
+            val ep1Btn = createTvActionButton("PLAY S${firstEp.seasonNumber}:E${firstEp.episodeNumber}", isPrimary = false) {
                 playEpisode(firstEp)
             }
             heroActionRow.addView(resumeBtn)
             heroActionRow.addView(ep1Btn)
             resumeBtn.requestFocus()
         } else {
-            val playEp1Btn = createTvActionButton("MAIN S${firstEp.seasonNumber}:E${firstEp.episodeNumber} SEKARANG", isPrimary = true) {
+            val playEp1Btn = createTvActionButton("PLAY S${firstEp.seasonNumber}:E${firstEp.episodeNumber} NOW", isPrimary = true) {
                 playEpisode(firstEp)
             }
             heroActionRow.addView(playEp1Btn)
@@ -526,7 +528,7 @@ class SeriesDetailActivity : Activity() {
         seasonStripScroll.visibility = View.VISIBLE
         seasons.forEach { sNum ->
             val btn = Button(this).apply {
-                text = "MUSIM $sNum"
+                text = "SEASON $sNum"
                 isAllCaps = true
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -587,7 +589,7 @@ class SeriesDetailActivity : Activity() {
     private fun renderSeasonEpisodes(seasonNum: Int) {
         episodesContainer.removeAllViews()
         val filtered = allEpisodes.filter { it.seasonNumber == seasonNum }.ifEmpty { allEpisodes }
-        episodesHeaderTitle.text = "MUSIM $seasonNum  •  ${filtered.size} EPISOD"
+        episodesHeaderTitle.text = "SEASON $seasonNum  •  ${filtered.size} ${if (filtered.size == 1) "EPISODE" else "EPISODES"}"
 
         val historyMap = ContinueWatchingManager.getList(this).associateBy { it.pageUrl }
 
@@ -595,7 +597,7 @@ class SeriesDetailActivity : Activity() {
             val historyItem = historyMap[ep.url]
 
             val playPill = TextView(this).apply {
-                text = if (historyItem != null) "SAMBUNG" else "PLAY"
+                text = if (historyItem != null) "RESUME" else "PLAY"
                 setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 typeface = Typeface.DEFAULT_BOLD
@@ -716,10 +718,10 @@ class SeriesDetailActivity : Activity() {
                 }
             }
 
-            val displayEpTitle = if (ep.title.isNotBlank() && !ep.title.startsWith("Episod", ignoreCase = true)) {
+            val displayEpTitle = if (ep.title.isNotBlank() && !ep.title.startsWith("Episode", ignoreCase = true) && !ep.title.startsWith("Episod", ignoreCase = true)) {
                 "${ep.episodeNumber}. ${ep.title}"
             } else {
-                "Episod ${ep.episodeNumber}"
+                "Episode ${ep.episodeNumber}"
             }
 
             val epTitleView = TextView(this).apply {
@@ -732,7 +734,7 @@ class SeriesDetailActivity : Activity() {
             }
 
             val subMetaParts = listOfNotNull(
-                "Musim ${ep.seasonNumber}",
+                "Season ${ep.seasonNumber}",
                 ep.runtime.takeIf { it.isNotBlank() },
                 ep.airDate.takeIf { it.isNotBlank() }
             )
@@ -745,7 +747,7 @@ class SeriesDetailActivity : Activity() {
             }
 
             val epPlotView = TextView(this).apply {
-                text = ep.overview.ifBlank { plot.ifBlank { "Tekan untuk memainkan ${ep.label} dalam kualiti definisi tinggi." } }
+                text = ep.overview.ifBlank { plot.ifBlank { "Select to stream ${ep.label} in HD." } }
                 setTextColor(Color.parseColor(MainActivity.TEXT_SECONDARY))
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
                 maxLines = 2

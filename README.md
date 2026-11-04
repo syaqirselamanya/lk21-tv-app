@@ -8,7 +8,7 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.4)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka TV v3.5.1 & Phone v1.1.1)
 
 1. **Enjin Dwi-Pelayan Pintar (`LK21` + `Watch32` Global)**
    * **Auto-Fallback Pintar:** Jika domain LayarKaca21 disekat ISP atau sedang *down*, CiteraLoka secara automatik beralih ke pelayan **Watch32 (`watch32.site` / TMDB)** tanpa ralat.
@@ -28,9 +28,9 @@
    * **Butang Semakan Manual:** Butang `KEMAS KINI` tersedia di bar kategori atas untuk menyemak kemas kini bila-bila masa.
    * **Penyelarasan Domain Automatik:** Sekiranya domain asal disekat, app akan menyelaraskan `base_url` baharu secara senyap melalui `config.json` di GitHub tanpa memerlukan pengguna memasang semula app.
 
-2. **Antara Muka Sleek Minimalis (Tanpa Emoji)**
-   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `KEMAS KINI`.
-   * Tiada ikon emoji serabut; tipografi kemas dengan efek fokus aksen *Electric Teal*.
+2. **Antara Muka Sleek Minimalis 100% English (Tanpa Emoji)**
+   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `LATEST`, `HOME`, `FEATURED`, `POPULAR`, `TV SERIES`, `2026`, `WESTERN`, `KOREAN`, `ACTION`, `HORROR`, `SCI-FI`, `SEARCH`, `UPDATE`.
+   * Tiada ikon emoji serabut dan tiada teks Bahasa Indonesia; semua UI, genre, serta sinopsis diselaraskan dalam Bahasa Inggeris sepenuhnya dengan efek fokus aksen *Electric Teal*.
 
 3. **Pemain Video Minimalis & Tetapan Standard Lengkap**
    * Kawalan pemain video kemas tanpa emoji: `PLAY`, `PAUSE`, `+10s`, `-10s`, `+30s`, `-30s`.
@@ -55,17 +55,17 @@
 
 ## 📲 Cara Pasang di Android TV / Telefon
 
-### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.5.0.apk`)
+### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.5.1.apk`)
 1. Buka aplikasi **Downloader** di Android TV / Google TV / Mi Box anda.
 2. Masukkan URL muat turun:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.0.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.1.apk
    ```
 
-### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.0.apk`)
+### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.1.apk`)
 1. Buka pelayar web di telefon pintar Android anda dan muat turun fail APK khas telefon:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.0.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.1.apk
    ```
 2. Pasang dan nikmati UI menegak (*Portrait*) lengkap dengan *Bottom Navigation*, Grid 3 Kolum, dan Pemain Video *Auto-Landscape* skrin penuh.
 

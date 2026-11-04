@@ -95,7 +95,13 @@ object Watch32Scraper {
 
     private fun fetchJson(url: String): JSONObject? {
         return try {
-            val conn = (URL(url).openConnection() as HttpURLConnection).apply {
+            val finalUrl = if (url.contains("api.themoviedb.org") && !url.contains("language=")) {
+                val sep = if (url.contains("?")) "&" else "?"
+                "${url}${sep}language=en-US"
+            } else {
+                url
+            }
+            val conn = (URL(finalUrl).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 9000
                 readTimeout = 9000
                 requestMethod = "GET"
@@ -301,7 +307,7 @@ object Watch32Scraper {
         val hasExplicitEpisode = parts.size >= 4
 
         val detailUrl = "$TMDB_API_BASE/${if (isTv) "tv" else "movie"}/$tmdbId?api_key=$TMDB_API_KEY&append_to_response=images,external_ids&include_image_language=en,null"
-        val json = fetchJson(detailUrl) ?: throw IllegalStateException("Gagal berhubung ke pelayan Watch32")
+        val json = fetchJson(detailUrl) ?: throw IllegalStateException("Failed to connect to Watch32 server")
 
         val rawTitle = if (isTv) {
             json.optString("name").ifBlank { json.optString("original_name") }
@@ -318,7 +324,7 @@ object Watch32Scraper {
         val backdropUrl = if (backdropPath.isNotBlank() && backdropPath != "null") "$IMG_BACKDROP$backdropPath" else posterUrl
         val logoUrl = extractBestLogoUrl(json.optJSONObject("images"))
 
-        val plot = json.optString("overview", "").ifBlank { "Tiada sinopsis tersedia." }
+        val plot = json.optString("overview", "").ifBlank { "No synopsis available." }
         val voteAvg = json.optDouble("vote_average", 0.0)
         val rating = if (voteAvg > 0.1) String.format(Locale.US, "%.1f", voteAvg) else ""
         val imdbId = json.optJSONObject("external_ids")?.optString("imdb_id", "") ?: json.optString("imdb_id", "")
@@ -334,11 +340,11 @@ object Watch32Scraper {
 
         val runtimeText = if (isTv) {
             val sCount = json.optInt("number_of_seasons", 1)
-            "WATCH32 • $sCount MUSIM • HD 1080p"
+            "WATCH32 • $sCount SEASON${if (sCount > 1) "S" else ""} • HD 1080p"
         } else {
             val mins = json.optInt("runtime", 0)
             val dur = if (mins > 0) formatRuntime(mins) else "HD 1080p"
-            "WATCH32 • $dur • BEBAS IKLAN"
+            "WATCH32 • $dur • AD-FREE"
         }
 
         val episodes = mutableListOf<EpisodeItem>()
@@ -357,7 +363,6 @@ object Watch32Scraper {
             }
             if (validSeasonNums.isEmpty()) validSeasonNums.add(1)
 
-            // Muat turun senarai episod bagi setiap musim (hadkan kepada 8 musim terkini supaya pantas)
             val seasonsToLoad = if (validSeasonNums.size > 8) validSeasonNums.takeLast(8) else validSeasonNums
             for (sNum in seasonsToLoad) {
                 val seasonJson = fetchJson("$TMDB_API_BASE/tv/$tmdbId/season/$sNum?api_key=$TMDB_API_KEY")
@@ -380,12 +385,12 @@ object Watch32Scraper {
                         val cleanEpTitle = if (epName.isNotBlank() && !epName.equals("Episode $eNum", ignoreCase = true)) {
                             epName
                         } else {
-                            "Episod $eNum"
+                            "Episode $eNum"
                         }
                         val epLabel = if (epName.isNotBlank() && !epName.equals("Episode $eNum", ignoreCase = true)) {
                             "S$sNum E$eNum • $epName"
                         } else {
-                            "S$sNum : Episod $eNum"
+                            "S$sNum : Episode $eNum"
                         }
                         episodes.add(
                             EpisodeItem(
@@ -490,6 +495,29 @@ object Watch32Scraper {
      * Lengkapkan butiran Siri TV LK21 dengan 16:9 Backdrop, Official ClearLogo PNG,
      * serta gambar babak (still_path), tajuk sebenar, durasi, dan sinopsis setiap episod daripada TMDB!
      */
+    fun enrichMovieDetail(detail: MediaDetail): MediaDetail {
+        if (detail.source == SOURCE_WATCH32) return detail
+        val (cleanTitle, yearHint) = extractCleanTitleAndYear(detail.title)
+        if (cleanTitle.isBlank()) return detail
+        val match = searchBestTmdbMatch(cleanTitle, yearHint, preferSeries = false) ?: return detail
+        val (tmdbId, isTv) = match
+        if (tmdbId <= 0) return detail
+        val json = fetchJson("$TMDB_API_BASE/${if (isTv) "tv" else "movie"}/$tmdbId?api_key=$TMDB_API_KEY")
+            ?: return detail
+        val tmdbPlot = json.optString("overview", "").trim()
+        val genresArr = json.optJSONArray("genres")
+        val genres = mutableListOf<String>()
+        if (genresArr != null) {
+            for (i in 0 until genresArr.length()) {
+                genresArr.optJSONObject(i)?.optString("name")?.takeIf { it.isNotBlank() }?.let { genres.add(it) }
+            }
+        }
+        return detail.copy(
+            plot = tmdbPlot.ifBlank { detail.plot },
+            genre = genres.joinToString(", ").ifBlank { detail.genre }
+        )
+    }
+
     fun enrichSeriesDetail(detail: MediaDetail): MediaDetail {
         if (detail.source == SOURCE_WATCH32) return detail
         val (cleanTitle, yearHint) = extractCleanTitleAndYear(detail.title)
@@ -514,13 +542,17 @@ object Watch32Scraper {
         }
         val enrichedLogo = extractBestLogoUrl(tvJson.optJSONObject("images"))
         val tmdbPlot = tvJson.optString("overview", "").trim()
-        val enrichedPlot = if (detail.plot.isBlank() || detail.plot == "Tiada sinopsis tersedia.") {
-            tmdbPlot.ifBlank { detail.plot }
-        } else {
-            detail.plot
-        }
+        val enrichedPlot = tmdbPlot.ifBlank { detail.plot }
 
-        // Kumpulkan data episod TMDB mengikut musim yang wujud dalam detail.episodes
+        val genresArr = tvJson.optJSONArray("genres")
+        val enGenres = mutableListOf<String>()
+        if (genresArr != null) {
+            for (i in 0 until genresArr.length()) {
+                genresArr.optJSONObject(i)?.optString("name")?.takeIf { it.isNotBlank() }?.let { enGenres.add(it) }
+            }
+        }
+        val enrichedGenre = enGenres.joinToString(", ").ifBlank { detail.genre }
+
         val uniqueSeasons = detail.episodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().take(8)
         val tmdbEpisodeMap = HashMap<String, EpisodeItem>()
         for (sNum in uniqueSeasons) {
@@ -556,12 +588,12 @@ object Watch32Scraper {
                 val realTitle = if (meta.title.isNotBlank() && !meta.title.equals("Episode ${ep.episodeNumber}", ignoreCase = true)) {
                     meta.title
                 } else {
-                    ep.title.ifBlank { "Episod ${ep.episodeNumber}" }
+                    ep.title.replace(Regex("(?i)episod(e)?"), "Episode").ifBlank { "Episode ${ep.episodeNumber}" }
                 }
                 val newLabel = if (meta.title.isNotBlank() && !meta.title.equals("Episode ${ep.episodeNumber}", ignoreCase = true)) {
                     "S${ep.seasonNumber} E${ep.episodeNumber} • ${meta.title}"
                 } else {
-                    ep.label
+                    ep.label.replace(Regex("(?i)episod(e)?"), "Episode")
                 }
                 ep.copy(
                     label = newLabel,
@@ -572,7 +604,11 @@ object Watch32Scraper {
                     airDate = meta.airDate
                 )
             } else {
-                ep.copy(stillUrl = ep.stillUrl.ifBlank { enrichedBackdrop })
+                ep.copy(
+                    label = ep.label.replace(Regex("(?i)episod(e)?"), "Episode"),
+                    title = ep.title.replace(Regex("(?i)episod(e)?"), "Episode"),
+                    stillUrl = ep.stillUrl.ifBlank { enrichedBackdrop }
+                )
             }
         }
 
@@ -581,14 +617,11 @@ object Watch32Scraper {
             backdropUrl = enrichedBackdrop,
             logoUrl = enrichedLogo,
             plot = enrichedPlot,
+            genre = enrichedGenre,
             episodes = enrichedEpisodes
         )
     }
 
-    /**
-     * Lengkapkan maklumat Pinned Live Hero Spotlight (16:9 Backdrop + Official ClearLogo PNG + Durasi + Sinopsis)
-     * Berfungsi untuk kedua-dua item WATCH32 dan item LK21 dengan cache memori pantas!
-     */
     fun enrichHeroSpotlight(item: MediaItem): HeroSpotlightData {
         val cacheKey = item.url.ifBlank { item.title }
         heroCache[cacheKey]?.let { return it }
@@ -646,7 +679,7 @@ object Watch32Scraper {
                 val datePart = formatNiceDate(rawDate)
 
                 val metaParts = listOf(genrePart, durationPart, datePart).filter { it.isNotBlank() }
-                val metaLine = metaParts.joinToString("  •  ").ifBlank { "HD Streaming  •  Bebas Iklan" }
+                val metaLine = metaParts.joinToString("  •  ").ifBlank { "HD Streaming  •  Ad-Free" }
 
                 val rawStatus = json.optString("status", "").uppercase(Locale.ROOT)
                 val statusBadge = when {
@@ -664,7 +697,7 @@ object Watch32Scraper {
 
                 val plot = json.optString("overview", "").trim()
                     .ifBlank { item.plot }
-                    .ifBlank { "Tonton penstriman definisi tinggi bebas iklan menerusi enjin pintar CiteraLoka." }
+                    .ifBlank { "Stream in high definition with zero ad interruptions on CiteraLoka." }
 
                 val enriched = HeroSpotlightData(
                     title = item.title.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { item.title },
@@ -691,12 +724,12 @@ object Watch32Scraper {
             metaLine = listOf(
                 item.genre.replace(",", " •").trim(),
                 item.releaseInfo
-            ).filter { it.isNotBlank() }.joinToString("  •  ").ifBlank { "Strim Definisi Tinggi  •  Bebas Iklan" },
+            ).filter { it.isNotBlank() }.joinToString("  •  ").ifBlank { "HD Streaming  •  Ad-Free" },
             statusBadge = item.statusBadge.ifBlank { if (item.isSeries) "SERIES" else "RELEASED" },
             qualityBadge = item.episodeOrQuality.replace("W32 • ", "").ifBlank { "HD" },
             rating = item.rating,
             sourceBadge = item.source,
-            plot = item.plot.ifBlank { "Tekan untuk menonton terus dalam kualiti HD tanpa gangguan iklan." }
+            plot = item.plot.ifBlank { "Press Play to stream immediately in high definition." }
         )
         heroCache[cacheKey] = fallback
         return fallback

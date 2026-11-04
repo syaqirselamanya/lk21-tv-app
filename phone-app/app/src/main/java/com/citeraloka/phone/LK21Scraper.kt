@@ -208,6 +208,53 @@ object LK21Scraper {
         return results
     }
 
+    private val INDO_GENRE_MAP = mapOf(
+        "petualangan" to "Adventure",
+        "keluarga" to "Family",
+        "kejahatan" to "Crime",
+        "komedi" to "Comedy",
+        "romantis" to "Romance",
+        "percintaan" to "Romance",
+        "misteri" to "Mystery",
+        "sejarah" to "History",
+        "perang" to "War",
+        "fantasi" to "Fantasy",
+        "animasi" to "Animation",
+        "dokumenter" to "Documentary",
+        "musik" to "Music",
+        "cerita seru" to "Thriller",
+        "ketegangan" to "Thriller",
+        "fiksi ilmiah" to "Sci-Fi",
+        "horor" to "Horror",
+        "aksi" to "Action",
+        "laga" to "Action",
+        "barat" to "Western",
+        "olahraga" to "Sport",
+        "biografi" to "Biography"
+    )
+
+    private fun toEnglishGenres(raw: String): String {
+        if (raw.isBlank()) return ""
+        return raw.split(",", "•", "/")
+            .map { part ->
+                val clean = part.trim()
+                INDO_GENRE_MAP[clean.lowercase()] ?: clean
+            }
+            .filter { it.isNotBlank() }
+            .joinToString(", ")
+    }
+
+    private fun toEnglishBadge(raw: String): String {
+        val clean = raw.trim()
+            .replace("Sub Indo", "", ignoreCase = true)
+            .replace("Subtitle Indonesia", "", ignoreCase = true)
+            .replace(Regex("(?i)selesai|tamat"), "COMPLETED")
+            .replace(Regex("(?i)terbaru"), "NEW")
+            .replace(Regex("(?i)segera"), "SOON")
+            .trim()
+        return clean.ifBlank { "HD" }
+    }
+
     private fun parseCard(baseUrl: String, card: Element): MediaItem? {
         val linkEl = card.selectFirst("figure a, a[itemprop='url'], h3 a, h2 a, a[href]")
             ?: return null
@@ -222,7 +269,10 @@ object LK21Scraper {
             ?.ifBlank { imgEl?.attr("alt") ?: linkEl.attr("title") }
             ?.replace("Nonton series ", "", ignoreCase = true)
             ?.replace("Nonton movie ", "", ignoreCase = true)
+            ?.replace("Nonton film ", "", ignoreCase = true)
             ?.replace("Nonton ", "", ignoreCase = true)
+            ?.replace("Sub Indo", "", ignoreCase = true)
+            ?.replace("Subtitle Indonesia", "", ignoreCase = true)
             ?.replace("streaming gratis", "", ignoreCase = true)
             ?.trim() ?: return null
 
@@ -254,17 +304,20 @@ object LK21Scraper {
         val epText = card.selectFirst("span.episode")?.text()?.trim() ?: ""
         val labelText = card.selectFirst("span.label")?.text()?.trim() ?: ""
         val durationText = card.selectFirst("span.duration")?.text()?.trim() ?: ""
-        val genreText = card.selectFirst("div.genre, meta[itemprop='genre']")?.let {
-            if (it.tagName() == "meta") it.attr("content") else it.text()
-        }?.trim() ?: ""
+        val genreText = toEnglishGenres(
+            card.selectFirst("div.genre, meta[itemprop='genre']")?.let {
+                if (it.tagName() == "meta") it.attr("content") else it.text()
+            }?.trim() ?: ""
+        )
 
         val isSeries = epText.isNotBlank() || durationText.startsWith("S.", ignoreCase = true)
-        val badge = when {
+        val rawBadge = when {
             epText.isNotBlank() -> epText
             labelText.isNotBlank() -> labelText
             durationText.isNotBlank() -> durationText
             else -> "HD"
         }
+        val badge = toEnglishBadge(rawBadge)
 
         return MediaItem(
             title = fullTitle,
@@ -298,9 +351,13 @@ object LK21Scraper {
         }
 
         val title = doc.selectFirst("div.movie-info h1, h1.entry-title, h1")?.text()
+            ?.replace("Nonton series ", "", ignoreCase = true)
+            ?.replace("Nonton movie ", "", ignoreCase = true)
+            ?.replace("Nonton film ", "", ignoreCase = true)
             ?.replace("Nonton ", "", ignoreCase = true)
             ?.replace("Sub Indo", "", ignoreCase = true)
-            ?.trim() ?: "Butiran Cerita"
+            ?.replace("Subtitle Indonesia", "", ignoreCase = true)
+            ?.trim() ?: "Title Details"
 
         val imgEl = doc.selectFirst("div.detail picture img, div.detail img, figure.poster img, .poster img, meta[property='og:image']")
         val posterUrl = imgEl?.let {
@@ -313,14 +370,20 @@ object LK21Scraper {
 
         val plot = doc.selectFirst("div.synopsis, div.meta-info .synopsis, blockquote, .desc")?.text()?.trim()
             ?: doc.selectFirst("meta[name='description']")?.attr("content")
-            ?: "Tiada sinopsis tersedia."
+            ?: "No synopsis available."
 
         val rating = doc.selectFirst("span.rating-number")?.text()?.trim() ?: ""
-        val quality = doc.select("div.info-tag span").joinToString(" • ") { it.text().trim() }.ifBlank { "HD 1080p" }
-        val genre = doc.select("div.tag-list a[href*='/genre/'], .genre a").joinToString(", ") { it.text().trim() }
-            .ifBlank { doc.selectFirst("meta[itemprop='genre']")?.attr("content") ?: "" }
+        val quality = doc.select("div.info-tag span")
+            .map { toEnglishBadge(it.text()) }
+            .filter { it.isNotBlank() }
+            .joinToString(" • ")
+            .ifBlank { "HD 1080p" }
+        val genre = toEnglishGenres(
+            doc.select("div.tag-list a[href*='/genre/'], .genre a").joinToString(", ") { it.text().trim() }
+                .ifBlank { doc.selectFirst("meta[itemprop='genre']")?.attr("content") ?: "" }
+        )
 
-        // 1. Senarai Episod (jika Series)
+        // 1. Episode List (for TV Series)
         val episodes = mutableListOf<EpisodeItem>()
         val seasonJsonEl = doc.selectFirst("script#season-data")
         if (seasonJsonEl != null) {
@@ -338,11 +401,11 @@ object LK21Scraper {
                         if (slug.isNotBlank()) {
                             episodes.add(
                                 EpisodeItem(
-                                    label = "S$sNum : Episod $epNum",
+                                    label = "S$sNum : Episode $epNum",
                                     url = "$currentOrigin/$slug",
                                     seasonNumber = sNum,
                                     episodeNumber = epNum,
-                                    title = "Episod $epNum"
+                                    title = "Episode $epNum"
                                 )
                             )
                         }
@@ -356,7 +419,8 @@ object LK21Scraper {
             doc.select("ul.episode-list a, div.episode-list a, ul.episodelist a").forEachIndexed { idx, el ->
                 val epHref = fixUrl(currentOrigin, el.attr("href"))
                 if (epHref.isNotBlank() && !epHref.endsWith("#")) {
-                    val label = el.text().trim().ifBlank { "Episod ${idx + 1}" }
+                    val rawLabel = el.text().trim().ifBlank { "Episode ${idx + 1}" }
+                    val label = rawLabel.replace(Regex("(?i)episod(e)?"), "Episode")
                     if (episodes.none { it.url == epHref }) {
                         val sMatch = Regex("(?i)S(\\d+)").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
                         val eMatch = Regex("(?i)(?:E|Episod|Episode|EPS)\\s*(\\d+)").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: (idx + 1)
@@ -374,7 +438,7 @@ object LK21Scraper {
             }
         }
 
-        // 2. Senarai Pelayan Video (P2P, CAST, HYDRAX)
+        // 2. Video Server Mirrors (P2P, CAST, HYDRAX)
         val mirrors = mutableListOf<MirrorItem>()
         doc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").forEach { el ->
             val rawMirror = el.attr("data-url").ifBlank { el.attr("value").ifBlank { el.attr("href") } }
@@ -382,6 +446,7 @@ object LK21Scraper {
                 val cleanMirror = fixUrl(currentOrigin, rawMirror)
                 val serverName = el.text().trim()
                     .replace("GANTI PLAYER ", "", ignoreCase = true)
+                    .replace("PILIH SERVER ", "", ignoreCase = true)
                     .ifBlank { el.attr("data-server").uppercase().ifBlank { "Server ${mirrors.size + 1}" } }
                 if (mirrors.none { it.embedUrl == cleanMirror }) {
                     mirrors.add(MirrorItem(name = serverName, embedUrl = cleanMirror))
@@ -398,7 +463,7 @@ object LK21Scraper {
         }
 
         if (mainEmbedUrl != null && mirrors.none { it.embedUrl.substringBefore("?") == mainEmbedUrl.substringBefore("?") }) {
-            mirrors.add(0, MirrorItem("UTAMA (P2P)", mainEmbedUrl))
+            mirrors.add(0, MirrorItem("PRIMARY (P2P)", mainEmbedUrl))
         }
 
         return MediaDetail(
