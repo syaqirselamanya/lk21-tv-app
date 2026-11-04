@@ -56,6 +56,9 @@ class PlayerActivity : Activity() {
     private var currentPositionSec = 0
     private var isUserSeeking = false
     private var lastSavedSec = 0
+    private var isStreamReady = false
+    private var fallbackBaseSec = 0
+    private var sessionWatchedSec = 0
 
     private val speeds = listOf(0.75f, 1.0f, 1.25f, 1.5f, 2.0f)
     private var speedIndex = 1
@@ -85,6 +88,24 @@ class PlayerActivity : Activity() {
         centerToastView.visibility = View.GONE
     }
 
+    private val sessionProgressTicker = object : Runnable {
+        override fun run() {
+            if (isStreamReady && isPlaying) {
+                sessionWatchedSec++
+                if (currentDurationSec <= 0) {
+                    val estSec = fallbackBaseSec + sessionWatchedSec
+                    if (!isUserSeeking) {
+                        timeCurrentView.text = formatTime(estSec)
+                    }
+                    if (sessionWatchedSec >= 3 && sessionWatchedSec % 5 == 0) {
+                        saveCurrentProgress()
+                    }
+                }
+            }
+            mainHandler.postDelayed(this, 1000L)
+        }
+    }
+
     @SuppressLint("SetJavaScriptEnabled", "ClickableViewAccessibility")
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -103,6 +124,7 @@ class PlayerActivity : Activity() {
         currentGenre = intent.getStringExtra("GENRE") ?: ""
         currentEpisodeLabel = intent.getStringExtra("EPISODE_LABEL") ?: ""
         resumeSec = intent.getIntExtra("RESUME_SEC", 0)
+        fallbackBaseSec = resumeSec
 
         val mirrorNames = intent.getStringArrayListExtra("MIRROR_NAMES") ?: arrayListOf()
         val mirrorUrls = intent.getStringArrayListExtra("MIRROR_URLS") ?: arrayListOf()
@@ -532,6 +554,16 @@ class PlayerActivity : Activity() {
                         resolved.isDirectWebEmbed -> loadDirectWebEmbedPlayer(resolved.streamUrl, resolved.referer)
                         else -> loadProtectedEmbedPlayer(resolved.streamUrl, resolved.referer)
                     }
+                    if (sessionWatchedSec < 5) sessionWatchedSec = 5
+                    saveCurrentProgress()
+                    mainHandler.postDelayed({
+                        loadingOverlay.visibility = View.GONE
+                        if (!isStreamReady) {
+                            isStreamReady = true
+                            mainHandler.removeCallbacks(sessionProgressTicker)
+                            mainHandler.postDelayed(sessionProgressTicker, 1000L)
+                        }
+                    }, 3000L)
                     rescheduleAutoHide()
                 }
             } catch (_: Exception) {
@@ -786,6 +818,11 @@ class PlayerActivity : Activity() {
         fun onVideoReady() {
             mainHandler.post {
                 loadingOverlay.visibility = View.GONE
+                if (!isStreamReady) {
+                    isStreamReady = true
+                    mainHandler.removeCallbacks(sessionProgressTicker)
+                    mainHandler.postDelayed(sessionProgressTicker, 1000L)
+                }
                 if (resumeSec > 0) {
                     seekToSeconds(resumeSec)
                     showCenterToast("RESUMED AT ${formatTime(resumeSec)}")
@@ -825,15 +862,21 @@ class PlayerActivity : Activity() {
     }
 
     private fun saveCurrentProgress() {
-        if (currentPositionSec > 5 && currentDurationSec > 0) {
+        val secToSave = if (currentPositionSec > 0) currentPositionSec else (fallbackBaseSec + sessionWatchedSec)
+        val durToSave = when {
+            currentDurationSec > 0 -> currentDurationSec
+            currentEpisodeLabel.isNotBlank() || episodes.isNotEmpty() -> 2700
+            else -> 6600
+        }
+        if (pageUrl.isNotBlank() && secToSave >= 2 && durToSave > 0) {
             ContinueWatchingManager.saveProgress(
                 context = this,
                 pageUrl = pageUrl,
                 embedUrl = currentEmbedUrl,
                 title = currentTitle,
                 posterUrl = posterUrl,
-                currentSec = currentPositionSec,
-                durationSec = currentDurationSec,
+                currentSec = secToSave,
+                durationSec = durToSave,
                 episodeLabel = currentEpisodeLabel,
                 serverName = currentServerName,
                 genre = currentGenre
@@ -983,10 +1026,17 @@ class PlayerActivity : Activity() {
         AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
             .setTitle("SELECT EPISODE")
             .setItems(names) { _, which ->
+                saveCurrentProgress()
                 val ep = episodes[which]
                 pageUrl = ep.url
                 currentEpisodeLabel = ep.label
                 currentTitle = "${currentTitle.substringBefore(" • ")} • ${ep.label}"
+                currentDurationSec = 0
+                currentPositionSec = 0
+                fallbackBaseSec = 0
+                sessionWatchedSec = 0
+                lastSavedSec = 0
+                isStreamReady = false
                 val defaultLabel = if (Watch32Scraper.isWatch32Uri(ep.url)) {
                     "W32 • Cinezo (No Ads)"
                 } else {

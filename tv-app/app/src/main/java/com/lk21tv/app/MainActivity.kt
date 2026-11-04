@@ -960,8 +960,21 @@ class MainActivity : Activity() {
                         serverName = item.serverName,
                         posterUrl = item.posterUrl,
                         genre = item.genre,
+                        episodeLabel = item.episodeLabel,
                         resumeSec = item.currentSec
                     )
+                }
+                setOnLongClickListener {
+                    AlertDialog.Builder(this@MainActivity, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
+                        .setTitle("REMOVE FROM CONTINUE WATCHING?")
+                        .setMessage(item.title)
+                        .setPositiveButton("REMOVE") { _, _ ->
+                            ContinueWatchingManager.remove(this@MainActivity, item.pageUrl)
+                            refreshContinueWatchingSection()
+                        }
+                        .setNegativeButton("CANCEL", null)
+                        .show()
+                    true
                 }
             }
 

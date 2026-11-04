@@ -41,7 +41,7 @@ object ContinueWatchingManager {
         serverName: String = "P2P Direct",
         genre: String = ""
     ) {
-        if (pageUrl.isBlank() || currentSec < 5) return
+        if (pageUrl.isBlank() || currentSec < 2) return
 
         val list = getList(context).toMutableList()
 

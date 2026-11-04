@@ -8,7 +8,7 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka TV v3.5.1 & Phone v1.1.1)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka TV v3.5.2 & Phone v1.1.2)
 
 1. **Enjin Dwi-Pelayan Pintar (`LK21` + `Watch32` Global)**
    * **Auto-Fallback Pintar:** Jika domain LayarKaca21 disekat ISP atau sedang *down*, CiteraLoka secara automatik beralih ke pelayan **Watch32 (`watch32.site` / TMDB)** tanpa ralat.
@@ -55,17 +55,17 @@
 
 ## 📲 Cara Pasang di Android TV / Telefon
 
-### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.5.1.apk`)
+### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.5.2.apk`)
 1. Buka aplikasi **Downloader** di Android TV / Google TV / Mi Box anda.
 2. Masukkan URL muat turun:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.1.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.2.apk
    ```
 
-### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.1.apk`)
+### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.2.apk`)
 1. Buka pelayar web di telefon pintar Android anda dan muat turun fail APK khas telefon:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.1.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.2.apk
    ```
 2. Pasang dan nikmati UI menegak (*Portrait*) lengkap dengan *Bottom Navigation*, Grid 3 Kolum, dan Pemain Video *Auto-Landscape* skrin penuh.
 

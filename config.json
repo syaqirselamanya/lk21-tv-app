@@ -1,7 +1,7 @@
 {
-  "versionCode": 10,
-  "versionName": "3.5.1",
+  "versionCode": 11,
+  "versionName": "3.5.2",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.1.apk",
-  "changelog": "Update v3.5.1: Taller cinematic Hero Page spotlight & Series Hero stage + full 100% English UI and synopses."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.2.apk",
+  "changelog": "Update v3.5.2: Fixed Continue Watching tracking across all Watch32 & iframe servers + taller Hero Page + 100% English UI."
 }
