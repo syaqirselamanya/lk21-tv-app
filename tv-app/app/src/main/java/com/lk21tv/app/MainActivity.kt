@@ -48,6 +48,7 @@ class MainActivity : Activity() {
         override fun sizeOf(key: String, value: Bitmap): Int = value.byteCount
     }
 
+    private lateinit var mainScrollView: ScrollView
     private lateinit var contentColumn: LinearLayout
     private lateinit var heroContainer: FrameLayout
     private lateinit var heroBackdropView: ImageView
@@ -167,9 +168,14 @@ class MainActivity : Activity() {
         brandLayout.addView(brandTextGroup)
         topBar.addView(brandLayout)
 
-        // Butang Tukar Sumber Pelayan (Gabungan Auto / LK21 / Watch32) - Box & Name Sahaja
+        // Pastikan mod sumber sentiasa AUTO (Gabungan Pintar LK21 + Watch32) apabila butang disembunyikan
+        sourceMode = "AUTO"
+
+        // Butang Tukar Sumber Pelayan (disembunyikan mengikut tetapan UI terkini)
         sourceModeBtn = createCategoryBox(getSourceModeButtonLabel()) {
             showSourceModeDialog()
+        }.apply {
+            visibility = View.GONE
         }
         topBar.addView(sourceModeBtn)
 
@@ -184,7 +190,10 @@ class MainActivity : Activity() {
         }
 
         topBar.addView(createCategoryBox("CARIAN") { showSearchDialog() })
-        topBar.addView(createCategoryBox("DOMAIN") { showDomainDialog() })
+        val domainBtn = createCategoryBox("DOMAIN") { showDomainDialog() }.apply {
+            visibility = View.GONE
+        }
+        topBar.addView(domainBtn)
         topBar.addView(createCategoryBox("KEMAS KINI") {
             AppUpdateManager.checkUpdate(this, isManual = true)
         })
@@ -192,12 +201,8 @@ class MainActivity : Activity() {
         topBarScroll.addView(topBar)
         root.addView(topBarScroll)
 
-        // 1. Pinned Live Hero Spotlight (Kekal di Atas & Bertukar Live Mengikut Fokus Remote)
-        heroContainer = buildPinnedHeroSpotlightStage()
-        root.addView(heroContainer)
-
-        // Kontena Skrol Utama di Bawah Pinned Hero Spotlight
-        val scrollView = ScrollView(this).apply {
+        // Kontena Skrol Utama (Hero Spotlight di bahagian atas skrol supaya ikut bergerak naik apabila skrol ke bawah)
+        mainScrollView = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 0,
@@ -206,9 +211,21 @@ class MainActivity : Activity() {
             isVerticalScrollBarEnabled = false
         }
 
+        val scrollBody = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        // 1. Live Hero Spotlight (Berada di atas halaman & hilang apabila skrol ke bawah)
+        heroContainer = buildPinnedHeroSpotlightStage()
+        scrollBody.addView(heroContainer)
+
         contentColumn = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(24), dp(12), dp(24), dp(32))
+            setPadding(dp(24), dp(14), dp(24), dp(32))
         }
 
         // 2. Bahagian Continue Watching (Sambung Menonton)
@@ -295,8 +312,9 @@ class MainActivity : Activity() {
         })
         contentColumn.addView(paginationRow)
 
-        scrollView.addView(contentColumn)
-        root.addView(scrollView)
+        scrollBody.addView(contentColumn)
+        mainScrollView.addView(scrollBody)
+        root.addView(mainScrollView)
 
         setContentView(root)
 
@@ -522,6 +540,7 @@ class MainActivity : Activity() {
                         refreshContinueWatchingSection()
                         refreshRecommendationSection()
                         renderCards(combined)
+                        mainScrollView.post { mainScrollView.scrollTo(0, 0) }
                     }
                 }
             } catch (e: Exception) {
@@ -534,12 +553,13 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Pinned Live Hero Spotlight (Inspirasi Nuvio Android TV - Tema Dark Teal Tanpa Emoji)
-     * Kekal di bahagian atas skrin dan bertukar secara live mengikut fokus kad remote/sentuhan!
+     * Live Hero Spotlight (Inspirasi Nuvio Android TV - Tema Dark Teal Tanpa Emoji)
+     * Berada di bahagian atas halaman skrol (ikut naik ke atas apabila pengguna skrol ke bawah)
+     * dan bertukar secara live mengikut fokus kad remote/sentuhan!
      */
     private fun buildPinnedHeroSpotlightStage(): FrameLayout {
         val dm = resources.displayMetrics
-        val stageHeight = (dm.heightPixels * 0.42f).toInt().coerceIn(dp(162), dp(242))
+        val stageHeight = (dm.heightPixels * 0.46f).toInt().coerceIn(dp(185), dp(270))
         val isCompactHeight = dm.heightPixels < dp(460)
 
         val stage = FrameLayout(this).apply {
