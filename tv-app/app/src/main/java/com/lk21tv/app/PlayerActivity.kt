@@ -370,32 +370,105 @@ class PlayerActivity : Activity() {
         executor.execute {
             try {
                 var embedToResolve = targetEmbedUrl
+                var effectiveLabel = serverLabel
+                var usedWatch32Fallback = false
 
                 if (embedToResolve.isBlank() && targetPageUrl.isNotBlank()) {
-                    val detail = LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
-                    currentTitle = detail.title
-                    if (posterUrl.isBlank()) posterUrl = detail.posterUrl
-                    if (currentGenre.isBlank()) currentGenre = detail.genre
-                    mirrors.clear()
-                    mirrors.addAll(detail.mirrors)
-                    episodes.clear()
-                    episodes.addAll(detail.episodes)
-
-                    if (detail.mainEmbedUrl.isNullOrBlank() && detail.episodes.isNotEmpty()) {
-                        val firstEp = detail.episodes.first()
-                        val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
-                        currentTitle = "${detail.title} • ${firstEp.label}"
-                        currentEpisodeLabel = firstEp.label
+                    if (Watch32Scraper.isWatch32Uri(targetPageUrl)) {
+                        val detail = Watch32Scraper.fetchDetail(targetPageUrl)
+                        currentTitle = detail.title
+                        if (posterUrl.isBlank()) posterUrl = detail.posterUrl
+                        if (currentGenre.isBlank()) currentGenre = detail.genre
                         mirrors.clear()
-                        mirrors.addAll(epDetail.mirrors)
-                        embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                        mirrors.addAll(detail.mirrors)
+                        episodes.clear()
+                        episodes.addAll(detail.episodes)
+
+                        if (detail.mainEmbedUrl.isNullOrBlank() && detail.episodes.isNotEmpty()) {
+                            val firstEp = detail.episodes.first()
+                            val epDetail = Watch32Scraper.fetchDetail(firstEp.url)
+                            pageUrl = firstEp.url
+                            currentTitle = epDetail.title
+                            currentEpisodeLabel = firstEp.label
+                            mirrors.clear()
+                            mirrors.addAll(epDetail.mirrors)
+                            embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                        } else {
+                            embedToResolve = detail.mainEmbedUrl ?: detail.mirrors.firstOrNull()?.embedUrl ?: ""
+                        }
+                        effectiveLabel = mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
                     } else {
-                        embedToResolve = detail.mainEmbedUrl ?: detail.mirrors.firstOrNull()?.embedUrl ?: ""
+                        // Cuba pelayan LK21 dahulu; jika disekat atau gagal, auto-fallback ke Watch32!
+                        val lkDetail = try {
+                            LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
+                        } catch (_: Exception) {
+                            null
+                        }
+
+                        if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
+                            currentTitle = lkDetail.title
+                            if (posterUrl.isBlank()) posterUrl = lkDetail.posterUrl
+                            if (currentGenre.isBlank()) currentGenre = lkDetail.genre
+                            mirrors.clear()
+                            mirrors.addAll(lkDetail.mirrors)
+                            episodes.clear()
+                            episodes.addAll(lkDetail.episodes)
+
+                            if (lkDetail.mainEmbedUrl.isNullOrBlank() && lkDetail.episodes.isNotEmpty()) {
+                                val firstEp = lkDetail.episodes.first()
+                                val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
+                                currentTitle = "${lkDetail.title} • ${firstEp.label}"
+                                currentEpisodeLabel = firstEp.label
+                                mirrors.clear()
+                                mirrors.addAll(epDetail.mirrors)
+                                embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                            } else {
+                                embedToResolve = lkDetail.mainEmbedUrl ?: lkDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                            }
+
+                            // Suntik pelayan sandaran Watch32 supaya pengguna boleh tukar server bila-bila masa
+                            val backupMirrors = Watch32Scraper.findBackupMirrorsForLk21(
+                                rawTitle = currentTitle,
+                                episodeLabel = currentEpisodeLabel,
+                                isSeries = episodes.isNotEmpty() || currentEpisodeLabel.isNotBlank()
+                            )
+                            backupMirrors.forEach { bm ->
+                                if (mirrors.none { it.embedUrl == bm.embedUrl }) {
+                                    mirrors.add(bm)
+                                }
+                            }
+                        }
+
+                        // Jika LK21 down / disekat / tiada pautan video, aktifkan Auto-Fallback ke Watch32!
+                        if (embedToResolve.isBlank()) {
+                            val fbDetail = Watch32Scraper.findFallbackDetail(
+                                rawTitle = currentTitle,
+                                episodeLabel = currentEpisodeLabel,
+                                preferSeries = currentEpisodeLabel.isNotBlank()
+                            )
+                            if (fbDetail != null) {
+                                usedWatch32Fallback = true
+                                if (posterUrl.isBlank()) posterUrl = fbDetail.posterUrl
+                                if (currentGenre.isBlank()) currentGenre = fbDetail.genre
+                                mirrors.clear()
+                                mirrors.addAll(fbDetail.mirrors)
+                                if (episodes.isEmpty()) {
+                                    episodes.addAll(fbDetail.episodes)
+                                }
+                                embedToResolve = fbDetail.mainEmbedUrl ?: fbDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                                effectiveLabel = fbDetail.mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
+                            }
+                        }
                     }
                 }
 
+                if (embedToResolve.isBlank()) {
+                    throw IllegalStateException("Tiada pelayan aktif ditemui")
+                }
+
                 currentEmbedUrl = embedToResolve
-                val resolved = LK21Scraper.resolveStream(embedToResolve, serverLabel)
+                currentServerName = effectiveLabel
+                val resolved = LK21Scraper.resolveStream(embedToResolve, effectiveLabel)
 
                 // Rekod tontonan untuk algoritma cadangan pintar
                 UserRecommendationManager.recordView(this@PlayerActivity, currentGenre, targetPageUrl, weightBoost = 3)
@@ -404,11 +477,14 @@ class PlayerActivity : Activity() {
                     titleTextView.text = currentTitle.uppercase()
                     serverBadgeBtn.text = "SERVER: ${resolved.serverName}"
                     episodeListBtn.visibility = if (episodes.isNotEmpty()) View.VISIBLE else View.GONE
+                    if (usedWatch32Fallback) {
+                        showCenterToast("AUTO-FALLBACK: SERVER WATCH32 AKTIF")
+                    }
 
-                    if (resolved.isDirectHls) {
-                        loadDirectHlsPlayer(resolved.streamUrl, resolved.referer)
-                    } else {
-                        loadProtectedEmbedPlayer(resolved.streamUrl, resolved.referer)
+                    when {
+                        resolved.isDirectHls -> loadDirectHlsPlayer(resolved.streamUrl, resolved.referer)
+                        resolved.isDirectWebEmbed -> loadDirectWebEmbedPlayer(resolved.streamUrl, resolved.referer)
+                        else -> loadProtectedEmbedPlayer(resolved.streamUrl, resolved.referer)
                     }
                     playPauseBtn.requestFocus()
                     rescheduleAutoHide()
@@ -561,6 +637,14 @@ class PlayerActivity : Activity() {
         webView.loadDataWithBaseURL(refererOrigin, html, "text/html", "UTF-8", null)
     }
 
+    private fun loadDirectWebEmbedPlayer(embedUrl: String, refererOrigin: String) {
+        val headers = mapOf(
+            "Referer" to refererOrigin,
+            "Origin" to refererOrigin.trimEnd('/')
+        )
+        webView.loadUrl(embedUrl, headers)
+    }
+
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
         val settings = webView.settings
@@ -600,6 +684,43 @@ class PlayerActivity : Activity() {
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 view?.evaluateJavascript(AdBlocker.CLEAN_EMBED_JS, null)
+                view?.evaluateJavascript(
+                    """
+                    (function() {
+                        if (window.__citeralokaBridgeActive) return;
+                        window.__citeralokaBridgeActive = true;
+                        function bindVideoTag() {
+                            var v = document.querySelector('video');
+                            if (v && !v.__clBound) {
+                                v.__clBound = true;
+                                if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
+                                v.addEventListener('loadeddata', function() {
+                                    if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
+                                });
+                                v.addEventListener('playing', function() {
+                                    if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(true);
+                                });
+                                v.addEventListener('pause', function() {
+                                    if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(false);
+                                });
+                                v.addEventListener('timeupdate', function() {
+                                    if (window.AndroidPlayer && v.duration > 0) {
+                                        window.AndroidPlayer.onTimeUpdate(
+                                            Math.floor(v.currentTime || 0),
+                                            Math.floor(v.duration || 0)
+                                        );
+                                    }
+                                });
+                            }
+                        }
+                        setInterval(bindVideoTag, 1000);
+                        setTimeout(function() {
+                            if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
+                        }, 2200);
+                    })();
+                    """.trimIndent(),
+                    null
+                )
             }
         }
 
@@ -823,7 +944,12 @@ class PlayerActivity : Activity() {
                 pageUrl = ep.url
                 currentEpisodeLabel = ep.label
                 currentTitle = "${currentTitle.substringBefore(" • ")} • ${ep.label}"
-                startStreamResolution(ep.url, "", "P2P Direct")
+                val defaultLabel = if (Watch32Scraper.isWatch32Uri(ep.url)) {
+                    "W32 • Cinezo (No Ads)"
+                } else {
+                    "P2P Direct"
+                }
+                startStreamResolution(ep.url, "", defaultLabel)
             }
             .setNegativeButton("BATAL", null)
             .show()
