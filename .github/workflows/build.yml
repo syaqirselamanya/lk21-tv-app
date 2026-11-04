@@ -33,36 +33,38 @@ jobs:
         working-directory: ./tv-app
         run: gradle assembleRelease --no-daemon
 
-      - name: Rename APK for Easy TV Download
+      - name: Rename APK with Version Number
+        id: meta
         run: |
+          VERSION_NAME=$(sed -n 's/.*versionName = "\([^"]*\)".*/\1/p' tv-app/app/build.gradle.kts)
+          APK_VERSIONED="citeraloka${VERSION_NAME}.apk"
+          echo "version_name=${VERSION_NAME}" >> "$GITHUB_OUTPUT"
+          echo "apk_versioned=${APK_VERSIONED}" >> "$GITHUB_OUTPUT"
+          cp tv-app/app/build/outputs/apk/release/app-release.apk "${APK_VERSIONED}"
           cp tv-app/app/build/outputs/apk/release/app-release.apk CiteraLoka.apk
-          cp tv-app/app/build/outputs/apk/release/app-release.apk LK21-TV-NoAds.apk
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: CiteraLoka-APK
-          path: |
-            CiteraLoka.apk
-            LK21-TV-NoAds.apk
+          name: citeraloka-${{ steps.meta.outputs.version_name }}
+          path: ${{ steps.meta.outputs.apk_versioned }}
 
       - name: Publish to GitHub Releases
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest
-          name: "CiteraLoka - Latest Build"
+          name: "CiteraLoka v${{ steps.meta.outputs.version_name }} (${{ steps.meta.outputs.apk_versioned }})"
           body: |
             ### 📺 Pemasangan Aplikasi Android TV / Telefon (Standalone APK)
-            Muat turun fail **`CiteraLoka.apk`** di bawah terus ke Android TV / Google TV / Telefon pintar anda:
-            - **URL Muat Turun Terus (CiteraLoka):** `https://github.com/${{ github.repository }}/releases/download/latest/CiteraLoka.apk`
-            - **URL Alternatif:** `https://github.com/${{ github.repository }}/releases/download/latest/LK21-TV-NoAds.apk`
+            Muat turun fail **`${{ steps.meta.outputs.apk_versioned }}`** di bawah terus ke Android TV / Google TV / Telefon pintar anda:
+            - **URL Muat Turun Terus (${{ steps.meta.outputs.apk_versioned }}):** `https://github.com/${{ github.repository }}/releases/download/latest/${{ steps.meta.outputs.apk_versioned }}`
 
             ### ☁️ Pemasangan Melalui Cloudstream Repository (Plugin JSON)
             Masukkan URL Repository ini di dalam aplikasi **Cloudstream** pada TV / telefon anda:
             - **URL Cloudstream Repo:** `https://raw.githubusercontent.com/${{ github.repository }}/builds/repo.json`
           files: |
+            ${{ steps.meta.outputs.apk_versioned }}
             CiteraLoka.apk
-            LK21-TV-NoAds.apk
           prerelease: false
 
   build-cloudstream-repo:
