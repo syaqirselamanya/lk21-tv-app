@@ -82,9 +82,11 @@ object AppUpdateManager {
                 // 2. Semakan Versi Aplikasi
                 val remoteVersionCode = obj.optInt("versionCode", 0)
                 val remoteVersionName = obj.optString("versionName", "Terkini")
+                val cleanRemoteVer = remoteVersionName.replace(Regex("[^a-zA-Z0-9._-]"), "")
+                val defaultApkName = if (cleanRemoteVer.isNotBlank()) "citeraloka${cleanRemoteVer}.apk" else "CiteraLoka.apk"
                 val apkUrl = obj.optString(
                     "apkUrl",
-                    "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/CiteraLoka.apk"
+                    "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/$defaultApkName"
                 )
                 val changelog = obj.optString("changelog", "Kemas kini prestasi dan kestabilan penstriman.")
 
@@ -139,12 +141,15 @@ object AppUpdateManager {
             layoutParams = ViewGroup.LayoutParams(dp(activity, 520), ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
+        val cleanVer = newVersionName.replace(Regex("[^a-zA-Z0-9._-]"), "")
+        val displayApkName = if (cleanVer.isNotBlank()) "citeraloka${cleanVer}.apk" else "CiteraLoka.apk"
+
         val title = TextView(activity).apply {
-            text = "KEMAS KINI CITERALOKA (v$newVersionName)"
+            text = "KEMAS KINI CITERALOKA ($displayApkName)"
             setTextColor(Color.parseColor("#F0FDFA"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 17f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.06f
+            letterSpacing = 0.04f
         }
 
         val desc = TextView(activity).apply {
@@ -165,7 +170,7 @@ object AppUpdateManager {
 
         val updateBtn = createBoxButton(activity, "KEMAS KINI SEKARANG", isPrimary = true) {
             dialog.dismiss()
-            startDownloadAndInstall(activity, apkUrl)
+            startDownloadAndInstall(activity, apkUrl, newVersionName)
         }
 
         btnRow.addView(dismissBtn)
@@ -182,7 +187,10 @@ object AppUpdateManager {
         updateBtn.requestFocus()
     }
 
-    private fun startDownloadAndInstall(activity: Activity, apkDownloadUrl: String) {
+    private fun startDownloadAndInstall(activity: Activity, apkDownloadUrl: String, versionName: String = "") {
+        val cleanVer = versionName.replace(Regex("[^a-zA-Z0-9._-]"), "")
+        val apkFileName = if (cleanVer.isNotBlank()) "citeraloka${cleanVer}.apk" else "CiteraLoka.apk"
+
         val progressDialog = Dialog(activity)
         progressDialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
         progressDialog.setCancelable(false)
@@ -196,11 +204,11 @@ object AppUpdateManager {
         }
 
         val title = TextView(activity).apply {
-            text = "MEMUAT TURUN KEMAS KINI..."
+            text = "MEMUAT TURUN $apkFileName..."
             setTextColor(Color.parseColor("#F0FDFA"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.06f
+            letterSpacing = 0.04f
             setPadding(0, 0, 0, dp(activity, 14))
         }
 
@@ -252,7 +260,13 @@ object AppUpdateManager {
                 }
 
                 val totalSize = redirectConn.contentLength
-                val apkFile = File(activity.cacheDir, "CiteraLoka.apk")
+                // Padam sebarang fail APK lama dalam cache sebelum simpan versi baharu
+                activity.cacheDir.listFiles()?.forEach { cached ->
+                    if (cached.name.endsWith(".apk", ignoreCase = true)) {
+                        cached.delete()
+                    }
+                }
+                val apkFile = File(activity.cacheDir, apkFileName)
                 if (apkFile.exists()) apkFile.delete()
 
                 redirectConn.inputStream.use { input ->
