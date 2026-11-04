@@ -83,13 +83,21 @@ object AdBlocker {
         return false
     }
 
-    // Dalam mod pemain video, sekat sebarang cubaan redirect balik ke laman utama lk21.de
+    // Dalam mod pemain video, sekat sebarang cubaan redirect ke laman iklan atau laman utama lk21.de
     fun isAllowedPlayerNavigation(url: String): Boolean {
+        val lowerUrl = url.lowercase().trim()
+        if (lowerUrl.startsWith("about:blank") || lowerUrl.startsWith("blob:") || lowerUrl.startsWith("data:")) {
+            return true
+        }
         val parsed = Uri.parse(url)
+        val scheme = parsed.scheme?.lowercase() ?: return false
+        if (scheme != "https" && scheme != "http") {
+            return false
+        }
         val host = parsed.host?.lowercase() ?: return false
 
-        // Sekat redirect paksa ke laman web lk21.de apabila dalam pemain video
-        if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official")) {
+        // Sekat redirect paksa ke laman web utama lk21 atau watch32 apabila dalam pemain video
+        if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official") || host == "watch32.site") {
             return false
         }
 
@@ -97,25 +105,11 @@ object AdBlocker {
             return false
         }
 
-        val allowedHosts = listOf(
-            "playcdn.de",
-            "videonode.de",
-            "mfw09.org",
-            "hydrax",
-            "abysscdn",
-            "iamcdn",
-            "turbovip",
-            "emturbovid",
-            "turbovid",
-            "cast",
-            "p2p",
-            "hownetwork",
-            "filemoon",
-            "dood",
-            "streamtape",
-            "vidhide"
-        )
-        return allowedHosts.any { host.contains(it) }
+        if (BLOCKED_PATH_KEYWORDS.any { lowerUrl.contains(it.lowercase()) }) {
+            return false
+        }
+
+        return true
     }
 
     fun createEmptyResponse(): WebResourceResponse {
