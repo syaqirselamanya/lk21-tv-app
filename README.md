@@ -8,15 +8,14 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.3)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.4)
 
 1. **Enjin Dwi-Pelayan Pintar (`LK21` + `Watch32` Global)**
    * **Auto-Fallback Pintar:** Jika domain LayarKaca21 disekat ISP atau sedang *down*, CiteraLoka secara automatik beralih ke pelayan **Watch32 (`watch32.site` / TMDB)** tanpa ralat.
    * **Katalog Lengkap & Carian Gabungan:** Menggabungkan kandungan LK21 bersama beribu-ribu filem & siri global daripada Watch32 (termasuk cerita yang tiada dalam LK21), lengkap dengan 10+ pelayan bebas iklan (*Cinezo, CineSrc, VidLink HD, VidEasy 4K, PeeStream, FlaxMovies*).
-   * **Penukar Sumber Manual (`SUMBER: AUTO` / `LK21` / `WATCH32`):** Boleh ditukar terus melalui kotak navigasi di bar atas.
 
-2. **Pinned Live Hero Spotlight (16:9 Backdrop & Official ClearLogo PNG)**
-   * Pentas *Hero Spotlight* kekal (*pinned*) di bahagian atas skrin dan **bertukar secara *live*** setiap kali fokus *D-Pad remote* bergerak ke mana-mana kad cerita di bawah.
+2. **Live Hero Spotlight (16:9 Backdrop & Official ClearLogo PNG)**
+   * Pentas *Hero Spotlight* berada di bahagian atas halaman skrol (ikut bergerak naik dan hilang apabila pengguna skrol ke bawah) serta **bertukar secara *live*** setiap kali fokus *D-Pad remote* bergerak ke mana-mana kad cerita.
    * Memaparkan gambar latar **16:9 Fanart/Backdrop** bersama **Official Movie/Series ClearLogo PNG** rasmi, durasi tayangan, tarikh rilis, rating IMDb, lencana sumber, dan sinopsis.
 
 3. **Identiti Visual Rasmi (Batik Gold 'C' & TV Banner 16:9)**
@@ -30,7 +29,7 @@
    * **Penyelarasan Domain Automatik:** Sekiranya domain asal disekat, app akan menyelaraskan `base_url` baharu secara senyap melalui `config.json` di GitHub tanpa memerlukan pengguna memasang semula app.
 
 2. **Antara Muka Sleek Minimalis (Tanpa Emoji)**
-   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `DOMAIN`, `KEMAS KINI`.
+   * Bar kategori berbentuk kotak minimalis (*Box & Name*): `TERBARU`, `UTAMA`, `UNGGULAN`, `POPULER`, `SIRI TV`, `2026`, `BARAT`, `KOREA`, `ACTION`, `HORROR`, `SCI-FI`, `CARIAN`, `KEMAS KINI`.
    * Tiada ikon emoji serabut; tipografi kemas dengan efek fokus aksen *Electric Teal*.
 
 3. **Pemain Video Minimalis & Tetapan Standard Lengkap**
@@ -60,7 +59,7 @@
 1. Buka aplikasi **Downloader** di Android TV / pelayar web di telefon anda.
 2. Masukkan URL muat turun:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/CiteraLoka.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.4.0.apk
    ```
 3. Pasang dan nikmati tontonan CiteraLoka.
 
