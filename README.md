@@ -8,9 +8,18 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.2)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka v3.3)
 
-1. **Identiti Visual Rasmi (Batik Gold 'C' & TV Banner 16:9)**
+1. **Enjin Dwi-Pelayan Pintar (`LK21` + `Watch32` Global)**
+   * **Auto-Fallback Pintar:** Jika domain LayarKaca21 disekat ISP atau sedang *down*, CiteraLoka secara automatik beralih ke pelayan **Watch32 (`watch32.site` / TMDB)** tanpa ralat.
+   * **Katalog Lengkap & Carian Gabungan:** Menggabungkan kandungan LK21 bersama beribu-ribu filem & siri global daripada Watch32 (termasuk cerita yang tiada dalam LK21), lengkap dengan 10+ pelayan bebas iklan (*Cinezo, CineSrc, VidLink HD, VidEasy 4K, PeeStream, FlaxMovies*).
+   * **Penukar Sumber Manual (`SUMBER: AUTO` / `LK21` / `WATCH32`):** Boleh ditukar terus melalui kotak navigasi di bar atas.
+
+2. **Pinned Live Hero Spotlight (16:9 Backdrop & Official ClearLogo PNG)**
+   * Pentas *Hero Spotlight* kekal (*pinned*) di bahagian atas skrin dan **bertukar secara *live*** setiap kali fokus *D-Pad remote* bergerak ke mana-mana kad cerita di bawah.
+   * Memaparkan gambar latar **16:9 Fanart/Backdrop** bersama **Official Movie/Series ClearLogo PNG** rasmi, durasi tayangan, tarikh rilis, rating IMDb, lencana sumber, dan sinopsis.
+
+3. **Identiti Visual Rasmi (Batik Gold 'C' & TV Banner 16:9)**
    * **Ikon Aplikasi Eksklusif:** Menggunakan reka bentuk 3D reben filem melengkung huruf **'C'** bertatahkan corak songket / batik emas dengan butang play segi tiga 3D bercahaya di tengah-tengah latar *Dark Teal*.
    * **Android TV Leanback Banner Rasmi:** Banner paparan 16:9 beresolusi tinggi (*Ultra HD*) khas untuk baris aplikasi Leanback pada Android TV, Google TV, dan Mi Box.
    * **Integrasi Bar Tajuk Aplikasi:** Lambang Batik Gold 'C' dipaparkan bersebelahan nama CiteraLoka pada bar navigasi atas.
