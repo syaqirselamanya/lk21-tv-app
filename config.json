@@ -1,7 +1,7 @@
 {
-  "versionCode": 7,
-  "versionName": "3.3.0",
+  "versionCode": 8,
+  "versionName": "3.4.0",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/CiteraLoka.apk",
-  "changelog": "Enjin Dwi-Pelayan (LK21 + Watch32 Auto-Fallback & Carian Gabungan) serta Pinned Live Hero Spotlight (16:9 Backdrop & Official Movie ClearLogo PNG)."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.4.0.apk",
+  "changelog": "Kemas kini UI v3.4.0: Butang Sumber & Domain disembunyikan untuk bar navigasi lebih bersih, Hero Spotlight kini ikut skrol halaman (hilang apabila skrol ke bawah), dan fail APK dinamakan mengikut versi (citeraloka3.4.0.apk)."
 }
