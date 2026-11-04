@@ -1476,6 +1476,12 @@ class MainActivity : Activity() {
     private fun onItemClicked(item: MediaItem, playImmediately: Boolean) {
         UserRecommendationManager.recordView(this, item.genre, item.url, weightBoost = 1)
 
+        // Untuk Siri TV (Series sahaja): terus masuk ke Halaman Pilihan Siri Gaya Netflix Mobile
+        if (item.isSeries) {
+            launchSeriesDetailPage(item)
+            return
+        }
+
         if (playImmediately && !item.isSeries) {
             val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) {
                 "W32 • Cinezo (No Ads)"
@@ -1527,7 +1533,21 @@ class MainActivity : Activity() {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     statusText.text = "${allLoadedItems.size} TAJUK"
-                    if (playImmediately && detail.episodes.isEmpty()) {
+                    if (detail.episodes.isNotEmpty()) {
+                        launchSeriesDetailPage(
+                            item.copy(
+                                title = detail.title,
+                                posterUrl = detail.posterUrl.ifBlank { item.posterUrl },
+                                backdropUrl = detail.backdropUrl.ifBlank { item.backdropUrl },
+                                logoUrl = detail.logoUrl.ifBlank { item.logoUrl },
+                                plot = detail.plot,
+                                rating = detail.rating.ifBlank { item.rating },
+                                genre = detail.genre.ifBlank { item.genre },
+                                source = detail.source,
+                                isSeries = true
+                            )
+                        )
+                    } else if (playImmediately) {
                         launchVideoPlayer(
                             pageUrl = detail.url,
                             embedUrl = detail.mainEmbedUrl ?: "",
@@ -1722,6 +1742,23 @@ class MainActivity : Activity() {
         dialog.setContentView(modalRoot)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
+        dialog.window?.setLayout(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun launchSeriesDetailPage(item: MediaItem) {
+        val intent = Intent(this, SeriesDetailActivity::class.java).apply {
+            putExtra("PAGE_URL", item.url)
+            putExtra("BASE_URL", baseUrl)
+            putExtra("TITLE", item.title)
+            putExtra("POSTER_URL", item.posterUrl)
+            putExtra("BACKDROP_URL", item.backdropUrl)
+            putExtra("LOGO_URL", item.logoUrl)
+            putExtra("PLOT", item.plot)
+            putExtra("RATING", item.rating)
+            putExtra("GENRE", item.genre)
+            putExtra("SOURCE", item.source)
+        }
+        startActivity(intent)
     }
 
     private fun createTouchButton(label: String, isPrimary: Boolean, onClick: () -> Unit): Button {

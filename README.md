@@ -55,17 +55,17 @@
 
 ## 📲 Cara Pasang di Android TV / Telefon
 
-### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.4.0.apk`)
+### Pilihan A1: Pasang Edisi Android TV (`citeraloka3.5.0.apk`)
 1. Buka aplikasi **Downloader** di Android TV / Google TV / Mi Box anda.
 2. Masukkan URL muat turun:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.4.0.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.0.apk
    ```
 
-### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.0.0.apk`)
+### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.0.apk`)
 1. Buka pelayar web di telefon pintar Android anda dan muat turun fail APK khas telefon:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.0.0.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.0.apk
    ```
 2. Pasang dan nikmati UI menegak (*Portrait*) lengkap dengan *Bottom Navigation*, Grid 3 Kolum, dan Pemain Video *Auto-Landscape* skrin penuh.
 

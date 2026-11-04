@@ -26,7 +26,14 @@ data class MediaItem(
 
 data class EpisodeItem(
     val label: String,
-    val url: String
+    val url: String,
+    val seasonNumber: Int = 1,
+    val episodeNumber: Int = 1,
+    val title: String = "",
+    val overview: String = "",
+    val stillUrl: String = "",
+    val runtime: String = "",
+    val airDate: String = ""
 )
 
 data class MirrorItem(
@@ -332,7 +339,10 @@ object LK21Scraper {
                             episodes.add(
                                 EpisodeItem(
                                     label = "S$sNum : Episod $epNum",
-                                    url = "$currentOrigin/$slug"
+                                    url = "$currentOrigin/$slug",
+                                    seasonNumber = sNum,
+                                    episodeNumber = epNum,
+                                    title = "Episod $epNum"
                                 )
                             )
                         }
@@ -348,7 +358,17 @@ object LK21Scraper {
                 if (epHref.isNotBlank() && !epHref.endsWith("#")) {
                     val label = el.text().trim().ifBlank { "Episod ${idx + 1}" }
                     if (episodes.none { it.url == epHref }) {
-                        episodes.add(EpisodeItem(label = label, url = epHref))
+                        val sMatch = Regex("(?i)S(\\d+)").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: 1
+                        val eMatch = Regex("(?i)(?:E|Episod|Episode|EPS)\\s*(\\d+)").find(label)?.groupValues?.getOrNull(1)?.toIntOrNull() ?: (idx + 1)
+                        episodes.add(
+                            EpisodeItem(
+                                label = label,
+                                url = epHref,
+                                seasonNumber = sMatch,
+                                episodeNumber = eMatch,
+                                title = label
+                            )
+                        )
                     }
                 }
             }

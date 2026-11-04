@@ -194,6 +194,7 @@ object AppUpdateManager {
         dialog.setContentView(root)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
+        dialog.window?.setLayout(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun startDownloadAndInstall(activity: Activity, apkDownloadUrl: String, versionName: String = "") {
@@ -248,6 +249,7 @@ object AppUpdateManager {
         progressDialog.setContentView(root)
         progressDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         progressDialog.show()
+        progressDialog.window?.setLayout(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
 
         executor.execute {
             try {

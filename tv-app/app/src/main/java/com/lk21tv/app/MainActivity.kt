@@ -1348,6 +1348,12 @@ class MainActivity : Activity() {
         // Rakam tabiat pengguna untuk cadangan pintar
         UserRecommendationManager.recordView(this, item.genre, item.url, weightBoost = 1)
 
+        // Untuk Siri TV (Series sahaja): terus masuk ke Halaman Pilihan Siri Gaya Netflix (Hero + Musim + Episod)
+        if (item.isSeries) {
+            launchSeriesDetailPage(item)
+            return
+        }
+
         if (playImmediately && !item.isSeries) {
             val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) {
                 "W32 • Cinezo (No Ads)"
@@ -1399,7 +1405,21 @@ class MainActivity : Activity() {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     statusText.text = "Sedia (${detail.source}): ${detail.title}"
-                    if (playImmediately && detail.episodes.isEmpty()) {
+                    if (detail.episodes.isNotEmpty()) {
+                        launchSeriesDetailPage(
+                            item.copy(
+                                title = detail.title,
+                                posterUrl = detail.posterUrl.ifBlank { item.posterUrl },
+                                backdropUrl = detail.backdropUrl.ifBlank { item.backdropUrl },
+                                logoUrl = detail.logoUrl.ifBlank { item.logoUrl },
+                                plot = detail.plot,
+                                rating = detail.rating.ifBlank { item.rating },
+                                genre = detail.genre.ifBlank { item.genre },
+                                source = detail.source,
+                                isSeries = true
+                            )
+                        )
+                    } else if (playImmediately) {
                         launchVideoPlayer(
                             pageUrl = detail.url,
                             embedUrl = detail.mainEmbedUrl ?: "",
@@ -1588,9 +1608,29 @@ class MainActivity : Activity() {
         }
         modalRoot.addView(closeBtn)
 
+        val dm = resources.displayMetrics
+        val modalWidth = (dm.widthPixels * 0.70f).toInt().coerceIn(dp(560), dp(820))
+
         dialog.setContentView(modalRoot)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
+        dialog.window?.setLayout(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+    }
+
+    private fun launchSeriesDetailPage(item: MediaItem) {
+        val intent = Intent(this, SeriesDetailActivity::class.java).apply {
+            putExtra("PAGE_URL", item.url)
+            putExtra("BASE_URL", baseUrl)
+            putExtra("TITLE", item.title)
+            putExtra("POSTER_URL", item.posterUrl)
+            putExtra("BACKDROP_URL", item.backdropUrl)
+            putExtra("LOGO_URL", item.logoUrl)
+            putExtra("PLOT", item.plot)
+            putExtra("RATING", item.rating)
+            putExtra("GENRE", item.genre)
+            putExtra("SOURCE", item.source)
+        }
+        startActivity(intent)
     }
 
     private fun launchVideoPlayer(

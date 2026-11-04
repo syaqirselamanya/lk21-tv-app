@@ -183,6 +183,7 @@ object AppUpdateManager {
         dialog.setContentView(root)
         dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         dialog.show()
+        dialog.window?.setLayout(dp(activity, 540), ViewGroup.LayoutParams.WRAP_CONTENT)
 
         updateBtn.requestFocus()
     }
@@ -237,6 +238,7 @@ object AppUpdateManager {
         progressDialog.setContentView(root)
         progressDialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
         progressDialog.show()
+        progressDialog.window?.setLayout(dp(activity, 460), ViewGroup.LayoutParams.WRAP_CONTENT)
 
         executor.execute {
             try {

@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "3.4.0",
+  "versionCode": 9,
+  "versionName": "3.5.0",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.4.0.apk",
-  "changelog": "Kemas kini UI v3.4.0: Butang Sumber & Domain disembunyikan untuk bar navigasi lebih bersih, Hero Spotlight kini ikut skrol halaman (hilang apabila skrol ke bawah), dan fail APK dinamakan mengikut versi (citeraloka3.4.0.apk)."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.0.apk",
+  "changelog": "Kemas kini v3.5.0: Halaman Pilihan Siri TV Penuh Gaya Netflix (Hero Page + Pilihan Musim + Kad Episod Bergambar 16:9 & Sinopsis + Butang Play) serta pembaikan saiz modal supaya lebar dan kemas."
 }

@@ -11,8 +11,8 @@ android {
         applicationId = "com.lk21tv.app"
         minSdk = 21
         targetSdk = 34
-        versionCode = 8
-        versionName = "3.4.0"
+        versionCode = 9
+        versionName = "3.5.0"
     }
 
     buildTypes {

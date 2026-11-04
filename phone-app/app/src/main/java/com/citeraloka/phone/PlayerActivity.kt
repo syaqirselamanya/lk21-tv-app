@@ -110,6 +110,12 @@ class PlayerActivity : Activity() {
             mirrors.add(MirrorItem(mirrorNames[i], mirrorUrls[i]))
         }
 
+        val epLabels = intent.getStringArrayListExtra("EPISODE_LABELS") ?: arrayListOf()
+        val epUrls = intent.getStringArrayListExtra("EPISODE_URLS") ?: arrayListOf()
+        for (i in 0 until minOf(epLabels.size, epUrls.size)) {
+            episodes.add(EpisodeItem(label = epLabels[i], url = epUrls[i]))
+        }
+
         val root = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             layoutParams = ViewGroup.LayoutParams(

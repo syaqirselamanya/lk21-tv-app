@@ -28,6 +28,13 @@
             </intent-filter>
         </activity>
 
+        <!-- Halaman Pilihan Siri TV Gaya Netflix Mobile (Hero + Musim + Episod) -->
+        <activity
+            android:name=".SeriesDetailActivity"
+            android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize"
+            android:exported="false"
+            android:screenOrientation="portrait" />
+
         <!-- Pemain Video Auto-Landscape Skrin Penuh -->
         <activity
             android:name=".PlayerActivity"

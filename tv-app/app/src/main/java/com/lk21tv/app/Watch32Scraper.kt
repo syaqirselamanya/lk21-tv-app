@@ -367,6 +367,21 @@ object Watch32Scraper {
                         val epObj = epsArr.optJSONObject(eIdx) ?: continue
                         val eNum = epObj.optInt("episode_number", eIdx + 1)
                         val epName = epObj.optString("name", "").trim()
+                        val epOverview = epObj.optString("overview", "").trim()
+                        val stillPath = epObj.optString("still_path", "")
+                        val stillUrl = if (stillPath.isNotBlank() && stillPath != "null") {
+                            "$IMG_POSTER$stillPath"
+                        } else {
+                            backdropUrl
+                        }
+                        val epRuntimeMins = epObj.optInt("runtime", 0)
+                        val epRuntime = if (epRuntimeMins > 0) "${epRuntimeMins}m" else ""
+                        val epAirDate = formatNiceDate(epObj.optString("air_date", ""))
+                        val cleanEpTitle = if (epName.isNotBlank() && !epName.equals("Episode $eNum", ignoreCase = true)) {
+                            epName
+                        } else {
+                            "Episod $eNum"
+                        }
                         val epLabel = if (epName.isNotBlank() && !epName.equals("Episode $eNum", ignoreCase = true)) {
                             "S$sNum E$eNum • $epName"
                         } else {
@@ -375,7 +390,14 @@ object Watch32Scraper {
                         episodes.add(
                             EpisodeItem(
                                 label = epLabel,
-                                url = "watch32://tv/$tmdbId/$sNum/$eNum"
+                                url = "watch32://tv/$tmdbId/$sNum/$eNum",
+                                seasonNumber = sNum,
+                                episodeNumber = eNum,
+                                title = cleanEpTitle,
+                                overview = epOverview,
+                                stillUrl = stillUrl,
+                                runtime = epRuntime,
+                                airDate = epAirDate
                             )
                         )
                     }
@@ -462,6 +484,105 @@ object Watch32Scraper {
         val (tmdbId, isTv) = match
         val (sNum, eNum) = parseSeasonEpisode(episodeLabel)
         return buildMirrors(tmdbId, isTv, sNum, eNum).take(5)
+    }
+
+    /**
+     * Lengkapkan butiran Siri TV LK21 dengan 16:9 Backdrop, Official ClearLogo PNG,
+     * serta gambar babak (still_path), tajuk sebenar, durasi, dan sinopsis setiap episod daripada TMDB!
+     */
+    fun enrichSeriesDetail(detail: MediaDetail): MediaDetail {
+        if (detail.source == SOURCE_WATCH32) return detail
+        val (cleanTitle, yearHint) = extractCleanTitleAndYear(detail.title)
+        if (cleanTitle.isBlank()) return detail
+
+        val match = searchBestTmdbMatch(cleanTitle, yearHint, preferSeries = true) ?: return detail
+        val (tmdbId, isTv) = match
+        if (!isTv || tmdbId <= 0) return detail
+
+        val tvJson = fetchJson("$TMDB_API_BASE/tv/$tmdbId?api_key=$TMDB_API_KEY&append_to_response=images&include_image_language=en,null")
+            ?: return detail
+
+        val backdropPath = tvJson.optString("backdrop_path", "")
+        val posterPath = tvJson.optString("poster_path", "")
+        val enrichedBackdrop = when {
+            backdropPath.isNotBlank() && backdropPath != "null" -> "$IMG_BACKDROP$backdropPath"
+            detail.backdropUrl.isNotBlank() -> detail.backdropUrl
+            else -> detail.posterUrl
+        }
+        val enrichedPoster = detail.posterUrl.ifBlank {
+            if (posterPath.isNotBlank() && posterPath != "null") "$IMG_POSTER$posterPath" else enrichedBackdrop
+        }
+        val enrichedLogo = extractBestLogoUrl(tvJson.optJSONObject("images"))
+        val tmdbPlot = tvJson.optString("overview", "").trim()
+        val enrichedPlot = if (detail.plot.isBlank() || detail.plot == "Tiada sinopsis tersedia.") {
+            tmdbPlot.ifBlank { detail.plot }
+        } else {
+            detail.plot
+        }
+
+        // Kumpulkan data episod TMDB mengikut musim yang wujud dalam detail.episodes
+        val uniqueSeasons = detail.episodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().take(8)
+        val tmdbEpisodeMap = HashMap<String, EpisodeItem>()
+        for (sNum in uniqueSeasons) {
+            val sJson = fetchJson("$TMDB_API_BASE/tv/$tmdbId/season/$sNum?api_key=$TMDB_API_KEY") ?: continue
+            val epsArr = sJson.optJSONArray("episodes") ?: continue
+            for (i in 0 until epsArr.length()) {
+                val epObj = epsArr.optJSONObject(i) ?: continue
+                val eNum = epObj.optInt("episode_number", i + 1)
+                val epName = epObj.optString("name", "").trim()
+                val epOverview = epObj.optString("overview", "").trim()
+                val stillPath = epObj.optString("still_path", "")
+                val stillUrl = if (stillPath.isNotBlank() && stillPath != "null") "$IMG_POSTER$stillPath" else enrichedBackdrop
+                val epRuntimeMins = epObj.optInt("runtime", 0)
+                val epRuntime = if (epRuntimeMins > 0) "${epRuntimeMins}m" else ""
+                val epAirDate = formatNiceDate(epObj.optString("air_date", ""))
+                tmdbEpisodeMap["${sNum}_$eNum"] = EpisodeItem(
+                    label = "",
+                    url = "",
+                    seasonNumber = sNum,
+                    episodeNumber = eNum,
+                    title = epName,
+                    overview = epOverview,
+                    stillUrl = stillUrl,
+                    runtime = epRuntime,
+                    airDate = epAirDate
+                )
+            }
+        }
+
+        val enrichedEpisodes = detail.episodes.map { ep ->
+            val meta = tmdbEpisodeMap["${ep.seasonNumber}_${ep.episodeNumber}"]
+            if (meta != null) {
+                val realTitle = if (meta.title.isNotBlank() && !meta.title.equals("Episode ${ep.episodeNumber}", ignoreCase = true)) {
+                    meta.title
+                } else {
+                    ep.title.ifBlank { "Episod ${ep.episodeNumber}" }
+                }
+                val newLabel = if (meta.title.isNotBlank() && !meta.title.equals("Episode ${ep.episodeNumber}", ignoreCase = true)) {
+                    "S${ep.seasonNumber} E${ep.episodeNumber} • ${meta.title}"
+                } else {
+                    ep.label
+                }
+                ep.copy(
+                    label = newLabel,
+                    title = realTitle,
+                    overview = meta.overview,
+                    stillUrl = meta.stillUrl,
+                    runtime = meta.runtime,
+                    airDate = meta.airDate
+                )
+            } else {
+                ep.copy(stillUrl = ep.stillUrl.ifBlank { enrichedBackdrop })
+            }
+        }
+
+        return detail.copy(
+            posterUrl = enrichedPoster,
+            backdropUrl = enrichedBackdrop,
+            logoUrl = enrichedLogo,
+            plot = enrichedPlot,
+            episodes = enrichedEpisodes
+        )
     }
 
     /**
