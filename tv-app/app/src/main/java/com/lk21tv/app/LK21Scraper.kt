@@ -14,7 +14,14 @@ data class MediaItem(
     val rating: String,
     val episodeOrQuality: String,
     val genre: String = "",
-    val isSeries: Boolean = false
+    val isSeries: Boolean = false,
+    val source: String = "LK21",
+    val backdropUrl: String = "",
+    val logoUrl: String = "",
+    val plot: String = "",
+    val releaseInfo: String = "",
+    val statusBadge: String = "",
+    val tmdbId: Int = 0
 )
 
 data class EpisodeItem(
@@ -37,14 +44,18 @@ data class MediaDetail(
     val episodes: List<EpisodeItem>,
     val mirrors: List<MirrorItem>,
     val mainEmbedUrl: String?,
-    val genre: String = ""
+    val genre: String = "",
+    val source: String = "LK21",
+    val backdropUrl: String = "",
+    val logoUrl: String = ""
 )
 
 data class ResolvedStream(
     val streamUrl: String,
     val isDirectHls: Boolean,
     val referer: String,
-    val serverName: String
+    val serverName: String,
+    val isDirectWebEmbed: Boolean = false
 )
 
 object LK21Scraper {
@@ -57,7 +68,7 @@ object LK21Scraper {
     private fun fetchDoc(url: String, referer: String? = null): Document {
         val conn = Jsoup.connect(url)
             .userAgent(USER_AGENT)
-            .timeout(15000)
+            .timeout(9500)
             .followRedirects(true)
             .ignoreHttpErrors(true)
         if (referer != null) {
@@ -389,6 +400,15 @@ object LK21Scraper {
      * supaya tidak dihalakan (redirect) ke laman web lk21.de!
      */
     fun resolveStream(embedUrl: String, serverName: String = "P2P"): ResolvedStream {
+        if (Watch32Scraper.isWatch32EmbedUrl(embedUrl)) {
+            return ResolvedStream(
+                streamUrl = embedUrl,
+                isDirectHls = false,
+                referer = "https://watch32.site/",
+                serverName = serverName,
+                isDirectWebEmbed = true
+            )
+        }
         try {
             val cleanUrl = embedUrl.substringBefore("?")
             // Contoh: https://videonode.de/iframe3/p2p/vl4biPHM2Q871_aFIsMpeA
