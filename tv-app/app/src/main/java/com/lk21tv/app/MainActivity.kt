@@ -1432,7 +1432,7 @@ class MainActivity : Activity() {
 
         if (playImmediately && !item.isSeries) {
             val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) {
-                "W32 • Cinezo (No Ads)"
+                "W32 • VidLink HD"
             } else {
                 "P2P Direct"
             }
@@ -1512,7 +1512,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) "W32 • Cinezo (No Ads)" else "P2P Direct"
+                    val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) "W32 • VidLink HD" else "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = item.url,
                         embedUrl = "",
@@ -1614,7 +1614,7 @@ class MainActivity : Activity() {
             detail.episodes.forEach { ep ->
                 val epBtn = createSleekButton(ep.label.uppercase(), isPrimary = false) {
                     dialog.dismiss()
-                    val epSrv = if (Watch32Scraper.isWatch32Uri(ep.url)) "W32 • Cinezo (No Ads)" else "P2P Direct"
+                    val epSrv = if (Watch32Scraper.isWatch32Uri(ep.url)) "W32 • VidLink HD" else "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = ep.url,
                         embedUrl = "",

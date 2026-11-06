@@ -96,8 +96,8 @@ object AdBlocker {
         }
         val host = parsed.host?.lowercase() ?: return false
 
-        // Sekat redirect paksa ke laman web utama lk21 atau watch32 apabila dalam pemain video
-        if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official") || host == "watch32.site") {
+        // Sekat redirect paksa ke laman web utama lk21 apabila dalam pemain video
+        if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official")) {
             return false
         }
 

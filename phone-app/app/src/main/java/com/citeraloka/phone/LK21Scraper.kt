@@ -491,7 +491,7 @@ object LK21Scraper {
                 isDirectHls = false,
                 referer = "https://watch32.site/",
                 serverName = serverName,
-                isDirectWebEmbed = true
+                isDirectWebEmbed = false
             )
         }
         try {

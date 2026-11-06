@@ -468,7 +468,7 @@ class PlayerActivity : Activity() {
                         } else {
                             embedToResolve = detail.mainEmbedUrl ?: detail.mirrors.firstOrNull()?.embedUrl ?: ""
                         }
-                        effectiveLabel = mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
+                        effectiveLabel = mirrors.firstOrNull()?.name ?: "W32 • VidLink HD"
                     } else {
                         val lkDetail = try {
                             LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
@@ -525,7 +525,7 @@ class PlayerActivity : Activity() {
                                     episodes.addAll(fbDetail.episodes)
                                 }
                                 embedToResolve = fbDetail.mainEmbedUrl ?: fbDetail.mirrors.firstOrNull()?.embedUrl ?: ""
-                                effectiveLabel = fbDetail.mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
+                                effectiveLabel = fbDetail.mirrors.firstOrNull()?.name ?: "W32 • VidLink HD"
                             }
                         }
                     }
@@ -693,14 +693,14 @@ class PlayerActivity : Activity() {
             <html>
             <head>
                 <meta charset="utf-8">
-                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
                 <style>
                     * { margin: 0; padding: 0; box-sizing: border-box; background: #000; overflow: hidden; }
                     html, body, iframe { width: 100vw; height: 100vh; border: 0; display: block; }
                 </style>
             </head>
             <body>
-                <iframe id="embed-frame" src="$embedUrl" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen; picture-in-picture; encrypted-media"></iframe>
+                <iframe id="embed-frame" src="$embedUrl" allowfullscreen="true" webkitallowfullscreen="true" mozallowfullscreen="true" allow="autoplay; fullscreen; picture-in-picture; encrypted-media; clipboard-write; gyroscope; accelerometer"></iframe>
                 <script>
                     var f = document.getElementById('embed-frame');
                     f.addEventListener('load', function() {
@@ -724,9 +724,16 @@ class PlayerActivity : Activity() {
 
     @SuppressLint("SetJavaScriptEnabled")
     private fun configureWebView() {
+        val cookieManager = CookieManager.getInstance()
+        cookieManager.setAcceptCookie(true)
+        cookieManager.setAcceptThirdPartyCookies(webView, true)
+
         val settings = webView.settings
         settings.javaScriptEnabled = true
         settings.domStorageEnabled = true
+        settings.databaseEnabled = true
+        settings.allowFileAccess = true
+        settings.allowContentAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = false
         settings.setSupportMultipleWindows(true)
@@ -752,6 +759,11 @@ class PlayerActivity : Activity() {
                 request: WebResourceRequest?
             ): Boolean {
                 val url = request?.url?.toString() ?: return true
+                val isForMainFrame = request.isForMainFrame
+                // Allow sub-frame navigation inside the video player iframe
+                if (!isForMainFrame) {
+                    return false
+                }
                 if (!AdBlocker.isAllowedPlayerNavigation(url)) {
                     return true
                 }
@@ -1038,7 +1050,7 @@ class PlayerActivity : Activity() {
                 lastSavedSec = 0
                 isStreamReady = false
                 val defaultLabel = if (Watch32Scraper.isWatch32Uri(ep.url)) {
-                    "W32 • Cinezo (No Ads)"
+                    "W32 • VidLink HD"
                 } else {
                     "P2P Direct"
                 }

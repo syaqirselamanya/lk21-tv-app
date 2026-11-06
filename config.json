@@ -1,7 +1,7 @@
 {
-  "versionCode": 12,
-  "versionName": "4.0.0",
+  "versionCode": 13,
+  "versionName": "4.0.1",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.0.apk",
-  "changelog": "Major update v4.0.0: Netflix-style profiles. Create up to 5 profiles with no login. Each profile keeps its own Continue Watching history and recommendations. Your existing history moves into the first profile you create."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.1.apk",
+  "changelog": "Fix Watch32 video playback: upgraded embed engine to VidLink HD with active 2026 mirrors (CineSrc, VidEasy 4K, 2Embed HD, VidSrc), sandboxed iframe player, and third-party cookie support."
 }

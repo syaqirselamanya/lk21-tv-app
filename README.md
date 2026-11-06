@@ -8,9 +8,11 @@
 
 ---
 
-## ✨ Ciri-Ciri Utama Terkini (CiteraLoka TV v4.0.0 & Phone v1.1.2)
+## ✨ Ciri-Ciri Utama Terkini (CiteraLoka TV v4.0.1 & Phone v1.1.2)
 
-0. **Profil Gaya Netflix (TV v4.0.0 — Tanpa Login)**
+- **Enjin Pemain Strim Watch32 Dinaik Taraf (v4.0.1)**: Enjin resolusi strim dipertingkat dengan pelayan utama `VidLink HD` bersama pelayan sandaran aktif 2026 (`CineSrc`, `VidEasy 4K`, `2Embed HD`, `VidSrc Auto/SU`), bekas iframe terlindung, sokongan kuki pihak ketiga (third-party cookies), dan penyelesaian isu sekatan backend 403 Forbidden.
+
+0. **Profil Gaya Netflix (TV v4.0.0+ — Tanpa Login)**
    * Skrin **"WHO'S WATCHING?"** pada setiap kali app dibuka. Cipta sehingga **5 profil** (nama + warna avatar) — tiada akaun, tiada login, semua disimpan pada peranti.
    * Setiap profil ada **Continue Watching** dan **algoritma cadangan** (`TOP PICKS FOR <NAMA>`) sendiri. Butang profil di bar atas untuk tukar profil, `MANAGE PROFILES` untuk edit/padam.
    * Sejarah lama (sebelum v4.0.0) dipindahkan automatik ke profil pertama yang dicipta.
@@ -60,11 +62,11 @@
 
 ## 📲 Cara Pasang di Android TV / Telefon
 
-### Pilihan A1: Pasang Edisi Android TV (`citeraloka4.0.0.apk`)
+### Pilihan A1: Pasang Edisi Android TV (`citeraloka4.0.1.apk`)
 1. Buka aplikasi **Downloader** di Android TV / Google TV / Mi Box anda.
 2. Masukkan URL muat turun:
    ```text
-   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.0.apk
+   https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.1.apk
    ```
 
 ### Pilihan A2: Pasang Edisi Telefon Pintar — UI Portrait Netflix Mobile (`citeraloka-phone1.1.2.apk`)

@@ -780,7 +780,7 @@ class SeriesDetailActivity : Activity() {
                 epUrl = ep.url,
                 epLabel = ep.label,
                 embedUrl = mirrors.firstOrNull()?.embedUrl ?: "",
-                serverName = mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)",
+                serverName = mirrors.firstOrNull()?.name ?: "W32 • VidLink HD",
                 mirrors = mirrors
             )
         } else {
