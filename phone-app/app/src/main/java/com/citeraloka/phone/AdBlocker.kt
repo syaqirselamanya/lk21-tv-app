@@ -83,6 +83,26 @@ object AdBlocker {
         return false
     }
 
+    private val TRUSTED_PLAYER_HOSTS = listOf(
+        "vidlink.pro",
+        "cinesrc.st",
+        "videasy.net",
+        "videasy.to",
+        "2embed.cc",
+        "vidsrc.to",
+        "vidsrc.su",
+        "vixsrc.to",
+        "peestream.in",
+        "cinezo.live",
+        "multiembed.mov",
+        "moviesapi.club",
+        "vidsrc.sh",
+        "vidsrc.cc",
+        "111movies.com",
+        "vidzee.wtf",
+        "watch32.site"
+    )
+
     // Dalam mod pemain video, sekat sebarang cubaan redirect ke laman iklan atau laman utama lk21.de
     fun isAllowedPlayerNavigation(url: String): Boolean {
         val lowerUrl = url.lowercase().trim()
@@ -95,6 +115,11 @@ object AdBlocker {
             return false
         }
         val host = parsed.host?.lowercase() ?: return false
+
+        // Sentiasa benarkan host pemain video yang dipercayai
+        if (TRUSTED_PLAYER_HOSTS.any { host.contains(it) }) {
+            return true
+        }
 
         // Sekat redirect paksa ke laman web utama lk21 apabila dalam pemain video
         if (host == "lk21.de" || host.endsWith(".lk21.de") || host.contains("lk21official")) {

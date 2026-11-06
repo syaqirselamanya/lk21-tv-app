@@ -745,8 +745,9 @@ class SeriesDetailActivity : Activity() {
 
     private fun playEpisode(ep: EpisodeItem) {
         if (Watch32Scraper.isWatch32Uri(ep.url)) {
-            val clean = ep.url.removePrefix("watch32://").trim('/').split("/")
-            val tmdbId = clean.getOrNull(1)?.toIntOrNull() ?: 0
+            val tmdbId = Regex("""(?:tv|movie)/(\d+)""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                ?: Regex("""\b(\d{3,8})\b""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                ?: 0
             val mirrors = if (tmdbId > 0) {
                 Watch32Scraper.buildMirrors(tmdbId, isSeries = true, season = ep.seasonNumber, episode = ep.episodeNumber)
             } else {

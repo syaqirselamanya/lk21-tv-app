@@ -87,7 +87,8 @@ object Watch32Scraper {
         "multiembed.mov"
     )
 
-    fun isWatch32Uri(url: String): Boolean = url.startsWith("watch32://")
+    fun isWatch32Uri(url: String): Boolean =
+        url.startsWith("watch32://") || url.contains("watch32.site")
 
     fun isWatch32EmbedUrl(url: String): Boolean {
         val lower = url.lowercase(Locale.ROOT)
@@ -263,27 +264,29 @@ object Watch32Scraper {
     ): List<MirrorItem> {
         val list = mutableListOf<MirrorItem>()
         if (isSeries) {
-            list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/tv/$tmdbId/$season/$episode?autoplay=true&primaryColor=00D4B2"))
             list.add(MirrorItem("W32 • CineSrc (No Ads)", "https://cinesrc.st/embed/tv/$tmdbId?s=$season&e=$episode"))
-            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.to/tv/$tmdbId/$season/$episode?color=00D4B2"))
+            list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/tv/$tmdbId/$season/$episode?autoplay=true&primaryColor=00D4B2"))
+            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/tv/$tmdbId/$season/$episode?color=00D4B2"))
+            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1&s=$season&e=$episode"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embedtv/$tmdbId&s=$season&e=$episode"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • VixSrc", "https://vixsrc.to/tv/$tmdbId/$season/$episode"))
-            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=show&season=$season&episode=$episode"))
+            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://providers.peestream.in/embed/?tmdbId=$tmdbId&type=tv&season=$season&episode=$episode"))
             list.add(MirrorItem("W32 • Cinezo (Backup)", "https://player.cinezo.live/embed/tv/$tmdbId/$season/$episode"))
             if (imdbId.isNotBlank()) {
                 list.add(MirrorItem("W32 • VidSrc Embed", "https://vidsrc.sh/embed/tv/$imdbId/$season/$episode"))
             }
         } else {
-            list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/movie/$tmdbId?autoplay=true&primaryColor=00D4B2"))
             list.add(MirrorItem("W32 • CineSrc (No Ads)", "https://cinesrc.st/embed/movie/$tmdbId"))
-            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.to/movie/$tmdbId?color=00D4B2"))
+            list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/movie/$tmdbId?autoplay=true&primaryColor=00D4B2"))
+            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/movie/$tmdbId?color=00D4B2"))
+            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embed/$tmdbId"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/movie/$tmdbId"))
             list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/movie/$tmdbId"))
             list.add(MirrorItem("W32 • VixSrc", "https://vixsrc.to/movie/$tmdbId"))
-            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=movie"))
+            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://providers.peestream.in/embed/?tmdbId=$tmdbId&type=movie"))
             list.add(MirrorItem("W32 • Cinezo (Backup)", "https://player.cinezo.live/embed/movie/$tmdbId"))
             if (imdbId.isNotBlank()) {
                 list.add(MirrorItem("W32 • VidSrc Embed", "https://vidsrc.sh/embed/movie/$imdbId"))
@@ -294,16 +297,19 @@ object Watch32Scraper {
 
     /**
      * Muat turun butiran penuh untuk watch32://movie/{id}, watch32://tv/{id}, atau watch32://tv/{id}/{s}/{e}
+     * Juga menyokong URL terus seperti https://watch32.site/play/tv/213375
      */
     fun fetchDetail(watch32Uri: String): MediaDetail {
-        val clean = watch32Uri.removePrefix("watch32://").trim('/')
-        val parts = clean.split("/")
-        val type = parts.getOrNull(0) ?: "movie"
+        val uriRegex = Regex("""(?:watch32://|https?://(?:www\.)?watch32\.site/(?:play/)?)(tv|movie)/(\d+)(?:/(\d+))?(?:/(\d+))?""")
+        val match = uriRegex.find(watch32Uri)
+        val type = match?.groupValues?.getOrNull(1) ?: if (watch32Uri.contains("/tv/") || watch32Uri.contains("tv")) "tv" else "movie"
         val isTv = type == "tv"
-        val tmdbId = parts.getOrNull(1)?.toIntOrNull() ?: 0
-        val targetSeason = parts.getOrNull(2)?.toIntOrNull() ?: 1
-        val targetEpisode = parts.getOrNull(3)?.toIntOrNull() ?: 1
-        val hasExplicitEpisode = parts.size >= 4
+        val tmdbId = match?.groupValues?.getOrNull(2)?.toIntOrNull()
+            ?: Regex("""\b(\d{3,8})\b""").find(watch32Uri)?.groupValues?.getOrNull(1)?.toIntOrNull()
+            ?: 0
+        val targetSeason = match?.groupValues?.getOrNull(3)?.toIntOrNull() ?: 1
+        val targetEpisode = match?.groupValues?.getOrNull(4)?.toIntOrNull() ?: 1
+        val hasExplicitEpisode = match?.groupValues?.getOrNull(4)?.isNotBlank() == true
 
         val detailUrl = "$TMDB_API_BASE/${if (isTv) "tv" else "movie"}/$tmdbId?api_key=$TMDB_API_KEY&append_to_response=images,external_ids&include_image_language=en,null"
         val json = fetchJson(detailUrl) ?: throw IllegalStateException("Failed to connect to Watch32 server")

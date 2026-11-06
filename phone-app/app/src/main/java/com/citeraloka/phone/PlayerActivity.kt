@@ -568,8 +568,15 @@ class PlayerActivity : Activity() {
                 }
             } catch (_: Exception) {
                 mainHandler.post {
-                    loadingOverlay.visibility = View.GONE
-                    showCenterToast("STREAM ERROR. PLEASE SWITCH SERVER.")
+                    val currentIndex = mirrors.indexOfFirst { it.embedUrl == currentEmbedUrl }
+                    if (currentIndex in 0 until mirrors.size - 1) {
+                        val nextMirror = mirrors[currentIndex + 1]
+                        showCenterToast("FAILOVER TO ${nextMirror.name}...")
+                        startStreamResolution(pageUrl, nextMirror.embedUrl, nextMirror.name)
+                    } else {
+                        loadingOverlay.visibility = View.GONE
+                        showCenterToast("STREAM ERROR. PLEASE SWITCH SERVER.")
+                    }
                 }
             }
         }
@@ -744,6 +751,16 @@ class PlayerActivity : Activity() {
         webView.addJavascriptInterface(PlayerJsBridge(), "AndroidPlayer")
 
         webView.webViewClient = object : WebViewClient() {
+            override fun onRenderProcessGone(
+                view: WebView?,
+                detail: RenderProcessGoneDetail?
+            ): Boolean {
+                mainHandler.post {
+                    showCenterToast("RECOVERING PLAYER...")
+                }
+                return true
+            }
+
             override fun shouldInterceptRequest(
                 view: WebView?,
                 request: WebResourceRequest?
