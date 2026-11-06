@@ -15,13 +15,23 @@ android {
         versionName = "4.0.1"
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("citeraloka.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
+        }
+    }
+
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.getByName("release")
         }
         debug {
             applicationIdSuffix = ""
+            signingConfig = signingConfigs.getByName("release")
         }
     }
 
