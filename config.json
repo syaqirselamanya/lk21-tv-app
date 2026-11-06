@@ -1,7 +1,7 @@
 {
-  "versionCode": 11,
-  "versionName": "3.5.2",
+  "versionCode": 12,
+  "versionName": "4.0.0",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka3.5.2.apk",
-  "changelog": "Update v3.5.2: Fixed Continue Watching tracking across all Watch32 & iframe servers + taller Hero Page + 100% English UI."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.0.apk",
+  "changelog": "Major update v4.0.0: Netflix-style profiles. Create up to 5 profiles with no login. Each profile keeps its own Continue Watching history and recommendations. Your existing history moves into the first profile you create."
 }

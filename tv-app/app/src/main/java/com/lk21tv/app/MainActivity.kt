@@ -103,6 +103,13 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
+        // Tiada profil aktif (cth. selepas proses dipulihkan) -> kembali ke skrin "Who's watching?"
+        if (ProfileManager.getActive(this) == null) {
+            startActivity(Intent(this, ProfileActivity::class.java))
+            finish()
+            return
+        }
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor(BG_DEEP_TEAL))
@@ -166,6 +173,9 @@ class MainActivity : Activity() {
         brandTextGroup.addView(brandSub)
         brandLayout.addView(brandTextGroup)
         topBar.addView(brandLayout)
+
+        // Profil aktif (Netflix-style): tekan untuk tukar / urus profil
+        topBar.addView(createProfileChip())
 
         // Pastikan mod sumber sentiasa AUTO (Gabungan Pintar LK21 + Watch32) apabila butang disembunyikan
         sourceMode = "AUTO"
@@ -335,6 +345,61 @@ class MainActivity : Activity() {
         // Muat semula seksyen Sambung Menonton setiap kali pengguna kembali ke MainActivity
         refreshContinueWatchingSection()
         refreshRecommendationSection()
+    }
+
+    private fun createProfileChip(): LinearLayout {
+        val profile = ProfileManager.getActive(this)
+        val colorHex = profile?.let { ProfileManager.colorOf(it) } ?: ACCENT_TEAL
+        val displayName = profile?.name ?: "PROFILE"
+
+        val avatar = TextView(this).apply {
+            text = ProfileManager.initialOf(displayName)
+            gravity = Gravity.CENTER
+            setTextColor(Color.parseColor(BG_DEEP_TEAL))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            typeface = Typeface.DEFAULT_BOLD
+            background = createRoundedBg(colorHex, colorHex, 0, 6)
+            layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).apply { rightMargin = dp(8) }
+        }
+        val nameView = TextView(this).apply {
+            text = displayName.uppercase()
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+            maxLines = 1
+        }
+
+        return LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            isFocusable = true
+            isFocusableInTouchMode = false
+            background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 6)
+            setPadding(dp(8), dp(5), dp(14), dp(5))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { rightMargin = dp(10) }
+            addView(avatar)
+            addView(nameView)
+            setOnFocusChangeListener { v, hasFocus ->
+                if (hasFocus) {
+                    nameView.setTextColor(Color.parseColor(BG_DEEP_TEAL))
+                    v.background = createRoundedBg(ACCENT_TEAL, "#FFFFFF", 2, 6)
+                    v.scaleX = 1.05f
+                    v.scaleY = 1.05f
+                } else {
+                    nameView.setTextColor(Color.parseColor(TEXT_PRIMARY))
+                    v.background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 6)
+                    v.scaleX = 1.0f
+                    v.scaleY = 1.0f
+                }
+            }
+            setOnClickListener {
+                startActivity(Intent(this@MainActivity, ProfileActivity::class.java))
+            }
+        }
     }
 
     private fun createCategoryBox(label: String, onClick: () -> Unit): Button {
@@ -892,7 +957,7 @@ class MainActivity : Activity() {
         }
 
         val sectionTitle = TextView(this).apply {
-            text = "CONTINUE WATCHING"
+            text = "CONTINUE WATCHING FOR ${ProfileManager.getActive(this@MainActivity)?.name?.uppercase() ?: "YOU"}"
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
             typeface = Typeface.DEFAULT_BOLD
@@ -1103,7 +1168,7 @@ class MainActivity : Activity() {
         }
 
         val subInfo = TextView(this).apply {
-            text = "TOP PICKS FOR YOU"
+            text = "TOP PICKS FOR ${ProfileManager.getActive(this@MainActivity)?.name?.uppercase() ?: "YOU"}"
             setTextColor(Color.parseColor(TEXT_MUTED))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
             letterSpacing = 0.05f

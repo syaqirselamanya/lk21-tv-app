@@ -14,14 +14,14 @@ object UserRecommendationManager {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
 
         // Kemas kini kegemaran genre pengguna
-        val genreJson = JSONObject(prefs.getString(KEY_GENRE_WEIGHTS, "{}") ?: "{}")
+        val genreJson = JSONObject(prefs.getString(ProfileManager.scopedKey(context, KEY_GENRE_WEIGHTS), "{}") ?: "{}")
         genre.split(",", "/", "&").map { it.trim() }.filter { it.isNotBlank() }.forEach { g ->
             val cur = genreJson.optInt(g, 0)
             genreJson.put(g, cur + weightBoost)
         }
 
         // Kemas kini kegemaran negara / rantau (contoh: Korea, Barat, China)
-        val countryJson = JSONObject(prefs.getString(KEY_COUNTRY_WEIGHTS, "{}") ?: "{}")
+        val countryJson = JSONObject(prefs.getString(ProfileManager.scopedKey(context, KEY_COUNTRY_WEIGHTS), "{}") ?: "{}")
         val possibleCountries = listOf("korea", "china", "usa", "barat", "japan", "india", "thailand")
         for (c in possibleCountries) {
             if (url.lowercase().contains(c) || genre.lowercase().contains(c)) {
@@ -31,13 +31,13 @@ object UserRecommendationManager {
         }
 
         // Simpan URL yang telah ditonton
-        val watchedSet = prefs.getStringSet(KEY_WATCHED_URLS, mutableSetOf())?.toMutableSet() ?: mutableSetOf()
+        val watchedSet = prefs.getStringSet(ProfileManager.scopedKey(context, KEY_WATCHED_URLS), mutableSetOf())?.toMutableSet() ?: mutableSetOf()
         if (url.isNotBlank()) watchedSet.add(url)
 
         prefs.edit()
-            .putString(KEY_GENRE_WEIGHTS, genreJson.toString())
-            .putString(KEY_COUNTRY_WEIGHTS, countryJson.toString())
-            .putStringSet(KEY_WATCHED_URLS, watchedSet)
+            .putString(ProfileManager.scopedKey(context, KEY_GENRE_WEIGHTS), genreJson.toString())
+            .putString(ProfileManager.scopedKey(context, KEY_COUNTRY_WEIGHTS), countryJson.toString())
+            .putStringSet(ProfileManager.scopedKey(context, KEY_WATCHED_URLS), watchedSet)
             .apply()
     }
 
@@ -52,9 +52,9 @@ object UserRecommendationManager {
      */
     fun getRecommendedItems(context: Context, allItems: List<MediaItem>): List<MediaItem> {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val genreJson = JSONObject(prefs.getString(KEY_GENRE_WEIGHTS, "{}") ?: "{}")
-        val countryJson = JSONObject(prefs.getString(KEY_COUNTRY_WEIGHTS, "{}") ?: "{}")
-        val watchedSet = prefs.getStringSet(KEY_WATCHED_URLS, emptySet()) ?: emptySet()
+        val genreJson = JSONObject(prefs.getString(ProfileManager.scopedKey(context, KEY_GENRE_WEIGHTS), "{}") ?: "{}")
+        val countryJson = JSONObject(prefs.getString(ProfileManager.scopedKey(context, KEY_COUNTRY_WEIGHTS), "{}") ?: "{}")
+        val watchedSet = prefs.getStringSet(ProfileManager.scopedKey(context, KEY_WATCHED_URLS), emptySet()) ?: emptySet()
 
         val scored = allItems.map { item ->
             var score = 0.0

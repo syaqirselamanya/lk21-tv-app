@@ -78,7 +78,7 @@ object ContinueWatchingManager {
 
     fun getList(context: Context): List<ContinueWatchingItem> {
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        val jsonStr = prefs.getString(KEY_HISTORY, "[]") ?: "[]"
+        val jsonStr = prefs.getString(ProfileManager.scopedKey(context, KEY_HISTORY), "[]") ?: "[]"
         val result = mutableListOf<ContinueWatchingItem>()
         try {
             val arr = JSONArray(jsonStr)
@@ -128,6 +128,6 @@ object ContinueWatchingManager {
             arr.put(obj)
         }
         val prefs = context.getSharedPreferences(PREF_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_HISTORY, arr.toString()).apply()
+        prefs.edit().putString(ProfileManager.scopedKey(context, KEY_HISTORY), arr.toString()).apply()
     }
 }
