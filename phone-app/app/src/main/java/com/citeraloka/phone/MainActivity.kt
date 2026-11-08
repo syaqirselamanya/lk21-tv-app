@@ -272,15 +272,15 @@ class MainActivity : Activity() {
         }
         contentColumn.addView(gridContainer)
 
-        // Bottom Pagination Row
+        // Bottom Pagination Row (Ikon Minimalis ‹ / ›)
         val paginationRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, dp(18), 0, dp(8))
         }
 
-        val prevBtn = createTouchButton("PREVIOUS", isPrimary = false) {
-            if (currentPage > 1) {
+        val prevBtn = createTouchButton("‹", isPrimary = false) {
+            if (currentPage > 1 && currentCategoryLabel != "CONTINUE WATCHING") {
                 currentPage--
                 loadCatalog(currentPath, currentPage)
             }
@@ -295,9 +295,11 @@ class MainActivity : Activity() {
             setPadding(dp(14), 0, dp(14), 0)
         }
 
-        val nextBtn = createTouchButton("NEXT", isPrimary = true) {
-            currentPage++
-            loadCatalog(currentPath, currentPage)
+        val nextBtn = createTouchButton("›", isPrimary = true) {
+            if (currentCategoryLabel != "CONTINUE WATCHING") {
+                currentPage++
+                loadCatalog(currentPath, currentPage)
+            }
         }
 
         paginationRow.addView(prevBtn)
@@ -310,18 +312,20 @@ class MainActivity : Activity() {
         root.addView(mainScrollView)
         outerFrame.addView(root)
 
-        // 5. Butang SEARCH Terapung di Bawah (Floating Search Pill Button - Phone)
+        // 5. Butang Ikon SEARCH Terapung di Bawah (Floating Search Icon Button - Phone)
         floatingSearchBtn = Button(this).apply {
-            text = "SEARCH"
-            isAllCaps = true
+            text = ""
+            isAllCaps = false
             setTextColor(Color.parseColor(TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.08f
             minHeight = 0
             minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
             background = createRoundedBg("#EB071F29", ACCENT_TEAL, 2, 28)
-            setPadding(dp(22), dp(12), dp(22), dp(12))
+            setPadding(dp(15), dp(15), dp(15), dp(15))
+            UiIcons.attachIcon(this, UiIcons.Type.SEARCH, sizeDp = 18, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
                 elevation = dp(10).toFloat()
             }
@@ -357,7 +361,12 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refreshContinueWatchingSection()
+        if (currentCategoryLabel == "CONTINUE WATCHING") {
+            openContinueWatchingTab()
+        } else {
+            continueWatchingContainer.visibility = View.GONE
+            continueWatchingContainer.removeAllViews()
+        }
         refreshRecommendationSection()
         mainHandler.removeCallbacks(heroCarouselRunnable)
         mainHandler.postDelayed(heroCarouselRunnable, 7000L)
@@ -373,7 +382,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.parseColor(BG_SURFACE_TEAL))
-            setPadding(dp(14), dp(10), dp(14), dp(6))
+            setPadding(dp(12), dp(10), dp(12), dp(6))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -385,8 +394,8 @@ class MainActivity : Activity() {
             val brandIcon = ImageView(this).apply {
                 setImageResource(iconResId)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(dp(28), dp(28)).apply {
-                    rightMargin = dp(8)
+                layoutParams = LinearLayout.LayoutParams(dp(26), dp(26)).apply {
+                    rightMargin = dp(7)
                 }
             }
             header.addView(brandIcon)
@@ -395,9 +404,9 @@ class MainActivity : Activity() {
         val brandTitle = TextView(this).apply {
             text = "CITERALOKA"
             setTextColor(Color.parseColor(ACCENT_TEAL))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.12f
+            letterSpacing = 0.11f
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
         header.addView(brandTitle)
@@ -405,16 +414,60 @@ class MainActivity : Activity() {
         topDomainStatusView = TextView(this).apply {
             text = DomainManager.getDomainStatusBadge(this@MainActivity)
             setTextColor(Color.parseColor(TEXT_SECONDARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 9.5f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.05f
+            letterSpacing = 0.04f
             background = createRoundedBg("#1400D4B2", BORDER_SUBTLE_TEAL, 1, 20)
-            setPadding(dp(10), dp(4), dp(10), dp(4))
+            setPadding(dp(8), dp(5), dp(8), dp(5))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
             setOnClickListener {
                 showSettingsModal()
             }
         }
         header.addView(topDomainStatusView)
+
+        // Butang Ikon FILTER di sebelah kanan atas
+        navFilterBtn = Button(this).apply {
+            text = ""
+            isAllCaps = true
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(dp(10), dp(7), dp(10), dp(7))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
+            UiIcons.attachIcon(this, UiIcons.Type.FILTER, sizeDp = 15, paddingDp = 5)
+            setOnClickListener { showFilterModal() }
+        }
+        header.addView(navFilterBtn)
+
+        // Butang Ikon SETTINGS di sebelah kanan atas
+        navSettingsBtn = Button(this).apply {
+            text = ""
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(dp(10), dp(7), dp(10), dp(7))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+            UiIcons.attachIcon(this, UiIcons.Type.SETTINGS, sizeDp = 15, paddingDp = 0)
+            setOnClickListener { showSettingsModal() }
+        }
+        header.addView(navSettingsBtn)
 
         return header
     }
@@ -423,10 +476,12 @@ class MainActivity : Activity() {
         if (searchBarContainer.visibility == View.VISIBLE) {
             hideKeyboard()
             searchBarContainer.visibility = View.GONE
-            floatingSearchBtn.text = "SEARCH"
+            floatingSearchBtn.text = ""
+            UiIcons.attachIcon(floatingSearchBtn, UiIcons.Type.SEARCH, sizeDp = 18, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
         } else {
             searchBarContainer.visibility = View.VISIBLE
-            floatingSearchBtn.text = "CLOSE SEARCH"
+            floatingSearchBtn.text = ""
+            UiIcons.attachIcon(floatingSearchBtn, UiIcons.Type.CLOSE, sizeDp = 18, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
             searchInput.requestFocus()
             val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
             imm?.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
@@ -437,18 +492,21 @@ class MainActivity : Activity() {
         return Button(this).apply {
             text = label
             isAllCaps = true
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            letterSpacing = 0.05f
+            setSingleLine(true)
+            maxLines = 1
+            gravity = Gravity.CENTER
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.2f)
+            letterSpacing = 0.03f
             minHeight = 0
             minimumHeight = 0
             minWidth = 0
             minimumWidth = 0
-            setPadding(dp(14), dp(6), dp(14), dp(6))
+            setPadding(dp(9), dp(6), dp(9), dp(6))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply {
-                rightMargin = dp(6)
+                rightMargin = dp(4)
             }
             setOnClickListener { onClick() }
         }
@@ -456,11 +514,15 @@ class MainActivity : Activity() {
 
     private fun styleHeaderNavPill(btn: Button, isSelected: Boolean) {
         if (isSelected) {
-            btn.setTextColor(Color.parseColor(TEXT_PRIMARY))
+            val c = Color.parseColor(TEXT_PRIMARY)
+            btn.setTextColor(c)
+            UiIcons.syncIconTint(btn, c)
             btn.typeface = Typeface.DEFAULT_BOLD
             btn.background = createRoundedBg("#2400D4B2", ACCENT_TEAL, 2, 24)
         } else {
-            btn.setTextColor(Color.parseColor("#8AB8C2"))
+            val c = Color.parseColor("#8AB8C2")
+            btn.setTextColor(c)
+            UiIcons.syncIconTint(btn, c)
             btn.typeface = Typeface.DEFAULT
             btn.background = createRoundedBg("#00000000", "#00000000", 0, 24)
         }
@@ -483,7 +545,8 @@ class MainActivity : Activity() {
             styleHeaderNavPill(navSeriesBtn, currentCategoryLabel == "TV SERIES" && activeFilterLabel.isBlank())
         }
         if (::navFilterBtn.isInitialized) {
-            navFilterBtn.text = if (activeFilterLabel.isNotBlank()) "FILTER: $activeFilterLabel" else "FILTER"
+            navFilterBtn.text = activeFilterLabel
+            UiIcons.attachIcon(navFilterBtn, UiIcons.Type.FILTER, sizeDp = 15, paddingDp = 5)
             styleHeaderNavPill(navFilterBtn, activeFilterLabel.isNotBlank())
         }
         if (::navSettingsBtn.isInitialized) {
@@ -491,16 +554,20 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun buildCategoryFilterStrip(): HorizontalScrollView {
-        val scroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            setBackgroundColor(Color.parseColor(BG_SURFACE_TEAL))
-            setPadding(dp(14), dp(2), dp(14), dp(10))
-        }
-
+    /**
+     * Bar Halaman Header (HOME, CONTINUE WATCHING, MOVIE, TV SERIES)
+     * Muat sepenuhnya dalam satu baris tanpa perlu skrol melintang!
+     */
+    private fun buildCategoryFilterStrip(): LinearLayout {
         categoryPillsRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor(BG_SURFACE_TEAL))
+            setPadding(dp(10), dp(2), dp(10), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
 
         navHomeBtn = createHeaderNavPill("HOME") {
@@ -535,25 +602,19 @@ class MainActivity : Activity() {
             currentCategoryLabel = "TV SERIES"
             refreshHeaderPillsAppearance()
             loadCatalog(currentPath, currentPage)
-        }
-
-        navFilterBtn = createHeaderNavPill("FILTER") {
-            showFilterModal()
-        }
-
-        navSettingsBtn = createHeaderNavPill("SETTINGS") {
-            showSettingsModal()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
         }
 
         categoryPillsRow.addView(navHomeBtn)
         categoryPillsRow.addView(navContinueBtn)
         categoryPillsRow.addView(navMovieBtn)
         categoryPillsRow.addView(navSeriesBtn)
-        categoryPillsRow.addView(navFilterBtn)
-        categoryPillsRow.addView(navSettingsBtn)
 
-        scroll.addView(categoryPillsRow)
-        return scroll
+        return categoryPillsRow
     }
 
     private fun openContinueWatchingTab() {
@@ -672,7 +733,7 @@ class MainActivity : Activity() {
             gravity = Gravity.END
         }
         if (activeFilterLabel.isNotBlank()) {
-            bottomRow.addView(createTouchButton("CLEAR FILTER", isPrimary = false) {
+            bottomRow.addView(createTouchButton("CLEAR", isPrimary = false) {
                 activeFilterLabel = ""
                 currentCategoryLabel = "HOME"
                 currentPath = "/latest"
@@ -682,7 +743,7 @@ class MainActivity : Activity() {
                 loadCatalog(currentPath, currentPage)
             })
         }
-        bottomRow.addView(createTouchButton("CLOSE", isPrimary = false) {
+        bottomRow.addView(createTouchButton("✕", isPrimary = false) {
             dialog.dismiss()
         })
         root.addView(bottomRow)
@@ -902,7 +963,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        bottomRow.addView(createTouchButton("CANCEL", isPrimary = false) {
+        bottomRow.addView(createTouchButton("✕", isPrimary = false) {
             dialog.dismiss()
         })
         bottomRow.addView(createTouchButton("SAVE & APPLY", isPrimary = true) {
@@ -964,15 +1025,16 @@ class MainActivity : Activity() {
         }
 
         val submitBtn = Button(this).apply {
-            text = "SEARCH"
-            isAllCaps = true
+            text = ""
+            isAllCaps = false
             setTextColor(Color.parseColor(TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            typeface = Typeface.DEFAULT_BOLD
             minHeight = 0
             minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
             background = createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
-            setPadding(dp(14), dp(10), dp(14), dp(10))
+            setPadding(dp(12), dp(10), dp(12), dp(10))
+            UiIcons.attachIcon(this, UiIcons.Type.SEARCH, sizeDp = 16, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -983,20 +1045,23 @@ class MainActivity : Activity() {
         }
 
         val closeSearchBtn = Button(this).apply {
-            text = "CLOSE"
-            isAllCaps = true
+            text = "✕"
+            isAllCaps = false
             setTextColor(Color.parseColor("#8AB8C2"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.DEFAULT
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            typeface = Typeface.DEFAULT_BOLD
             minHeight = 0
             minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
             background = createRoundedBg("#1A0B2B38", "#00000000", 0, 24)
-            setPadding(dp(12), dp(10), dp(12), dp(10))
+            setPadding(dp(13), dp(9), dp(13), dp(9))
             setOnClickListener {
                 hideKeyboard()
                 bar.visibility = View.GONE
                 if (::floatingSearchBtn.isInitialized) {
-                    floatingSearchBtn.text = "SEARCH"
+                    floatingSearchBtn.text = ""
+                    UiIcons.attachIcon(floatingSearchBtn, UiIcons.Type.SEARCH, sizeDp = 18, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
                 }
             }
         }
@@ -1013,7 +1078,8 @@ class MainActivity : Activity() {
         hideKeyboard()
         searchBarContainer.visibility = View.GONE
         if (::floatingSearchBtn.isInitialized) {
-            floatingSearchBtn.text = "SEARCH"
+            floatingSearchBtn.text = ""
+            UiIcons.attachIcon(floatingSearchBtn, UiIcons.Type.SEARCH, sizeDp = 18, paddingDp = 0, colorInt = Color.parseColor(TEXT_PRIMARY))
         }
         activeFilterLabel = ""
         currentPage = 1
@@ -1201,7 +1267,7 @@ class MainActivity : Activity() {
         }
 
         val playBtn = Button(this).apply {
-            text = "PLAY NOW"
+            text = "▶ PLAY"
             isAllCaps = true
             setTextColor(Color.parseColor(BG_DEEP_TEAL))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
@@ -1242,7 +1308,7 @@ class MainActivity : Activity() {
         actionRow.addView(infoBtn)
         infoCol.addView(actionRow)
 
-        // Apple TV+ Carousel Switcher Row (Prev + Animated Pill Dots + Next)
+        // Apple TV+ Carousel Switcher Row (‹ + Animated Pill Dots + ›)
         val carouselRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -1255,11 +1321,11 @@ class MainActivity : Activity() {
         }
 
         val prevSlideBtn = TextView(this).apply {
-            text = "‹ PREV"
+            text = "‹"
             setTextColor(Color.parseColor(TEXT_SECONDARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(10), dp(3), dp(10), dp(3))
+            setPadding(dp(10), dp(2), dp(10), dp(2))
             setOnClickListener {
                 if (hotPicksList.isNotEmpty()) {
                     val prev = (currentHeroSlideIndex - 1 + hotPicksList.size) % hotPicksList.size
@@ -1275,11 +1341,11 @@ class MainActivity : Activity() {
         }
 
         val nextSlideBtn = TextView(this).apply {
-            text = "NEXT ›"
+            text = "›"
             setTextColor(Color.parseColor(TEXT_SECONDARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
             typeface = Typeface.DEFAULT_BOLD
-            setPadding(dp(10), dp(3), dp(10), dp(3))
+            setPadding(dp(10), dp(2), dp(10), dp(2))
             setOnClickListener {
                 if (hotPicksList.isNotEmpty()) {
                     val next = (currentHeroSlideIndex + 1) % hotPicksList.size
@@ -1512,9 +1578,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Seksyen Sambung Menonton (Continue Watching) Mesra Sentuhan Jari
+     * Seksyen Sambung Menonton (Continue Watching) - Hanya dipaparkan di dalam halaman CONTINUE WATCHING sahaja
      */
     private fun refreshContinueWatchingSection() {
+        if (currentCategoryLabel != "CONTINUE WATCHING") {
+            continueWatchingContainer.visibility = View.GONE
+            continueWatchingContainer.removeAllViews()
+            return
+        }
         val historyList = ContinueWatchingManager.getList(this)
         if (historyList.isEmpty()) {
             continueWatchingContainer.visibility = View.GONE
@@ -1652,6 +1723,27 @@ class MainActivity : Activity() {
                 }
             }
             posterFrame.addView(badgeView)
+
+            val removeCardBtn = TextView(this).apply {
+                text = "✕"
+                setTextColor(Color.parseColor(TEXT_PRIMARY))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 10f)
+                typeface = Typeface.DEFAULT_BOLD
+                background = createRoundedBg("#CC031117", BORDER_SUBTLE_TEAL, 1, 12)
+                setPadding(dp(6), dp(2), dp(6), dp(2))
+                layoutParams = FrameLayout.LayoutParams(
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    ViewGroup.LayoutParams.WRAP_CONTENT,
+                    Gravity.TOP or Gravity.END
+                ).apply {
+                    setMargins(dp(4), dp(4), dp(4), dp(4))
+                }
+                setOnClickListener {
+                    ContinueWatchingManager.remove(this@MainActivity, item.pageUrl)
+                    openContinueWatchingTab()
+                }
+            }
+            posterFrame.addView(removeCardBtn)
 
             val titleView = TextView(this).apply {
                 text = item.title
@@ -2255,7 +2347,7 @@ class MainActivity : Activity() {
         listScroll.addView(optionsCol)
         modalRoot.addView(listScroll)
 
-        val closeBtn = createTouchButton("CLOSE", isPrimary = false) {
+        val closeBtn = createTouchButton("✕", isPrimary = false) {
             dialog.dismiss()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(

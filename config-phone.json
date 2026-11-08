@@ -1,7 +1,7 @@
 {
-  "versionCode": 8,
-  "versionName": "1.1.6",
+  "versionCode": 9,
+  "versionName": "1.1.7",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.6.apk",
-  "changelog": "v1.1.6: Direct Domain Player Controls & Scrolling Timer (Ad-Free App Wrapper), Apple TV+ Hot Picks Hero Carousel, Minimalist Header (Home, Continue Watching, Movie, TV Series, Filter, Settings), Floating Search Button di bawah, Netflix/Disney+ Filter Modal, dan Settings Hub (Domain Select, Check Update, Aspect Ratio, Carousel Auto-Slide, Clear History/Cache)."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.7.apk",
+  "changelog": "v1.1.7: Ikon Vektor Minimalis (Filter, Settings, Floating Search, Back ←, Close ✕, Play ▶), Header Pages muat penuh tanpa perlu skrol, dan Continue Watching hanya dipaparkan di dalam halaman Continue Watching."
 }

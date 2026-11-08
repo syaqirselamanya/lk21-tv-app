@@ -216,7 +216,7 @@ class PlayerActivity : Activity() {
         root.addView(osdContainer)
 
         showTopBarPillBtn = Button(this).apply {
-            text = "MENU • SERVER"
+            text = "SERVER"
             isAllCaps = true
             setTextColor(Color.parseColor("#CC99F6E4"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
@@ -227,7 +227,8 @@ class PlayerActivity : Activity() {
             minWidth = 0
             minimumWidth = 0
             background = createRoundedBg("#99031117", "#6600D4B2", 1, 20)
-            setPadding(dp(14), dp(6), dp(14), dp(6))
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            UiIcons.attachIcon(this, UiIcons.Type.SETTINGS, sizeDp = 14, paddingDp = 5, colorInt = Color.parseColor("#CC99F6E4"))
             visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -295,7 +296,9 @@ class PlayerActivity : Activity() {
             )
         }
 
-        val backBtn = createOsdButton("BACK", isAccent = false) { finish() }
+        val backBtn = createOsdButton("", isAccent = false) { finish() }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.BACK, sizeDp = 15, paddingDp = 0)
+        }
 
         titleTextView = TextView(this).apply {
             text = currentTitle.uppercase()
@@ -309,21 +312,26 @@ class PlayerActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
-        episodeListBtn = createOsdButton("EPISODES", isAccent = false) {
+        episodeListBtn = createOsdButton("EP", isAccent = false) {
             showEpisodeSwitchDialog()
         }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.EPISODES, sizeDp = 14, paddingDp = 5)
             visibility = View.GONE
         }
 
         serverBadgeBtn = createOsdButton("SERVER: P2P", isAccent = true) {
             showServerSwitchDialog()
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.SERVER, sizeDp = 14, paddingDp = 5)
         }
 
         aspectBtn = createOsdButton(fitModes[fitIndex].second, isAccent = false) {
             cycleAspectRatio()
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.ASPECT, sizeDp = 14, paddingDp = 5)
         }
 
-        val hideTopBarBtn = createOsdButton("HIDE BAR", isAccent = false) {
+        val hideTopBarBtn = createOsdButton("✕", isAccent = false) {
             osdContainer.visibility = View.GONE
             showTopBarPillBtn.visibility = View.VISIBLE
             enterImmersiveFullscreen()

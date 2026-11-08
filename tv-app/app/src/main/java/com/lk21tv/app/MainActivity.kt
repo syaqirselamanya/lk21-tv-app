@@ -205,15 +205,11 @@ class MainActivity : Activity() {
         leftPinnedGroup.addView(leftDivider)
         topHeaderRow.addView(leftPinnedGroup)
 
-        // 2. Bahagian Tengah: Tab Navigasi Utama Bentuk Bujur Minimalis
-        val topBarScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
-        }
-
+        // 2. Bahagian Tengah: Tab Navigasi Utama Bentuk Bujur Minimalis (Tanpa perlu skrol melintang)
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         }
 
         categoryPillButtons.clear()
@@ -264,34 +260,42 @@ class MainActivity : Activity() {
         }
         topBar.addView(navSeriesBtn)
 
-        navFilterBtn = createMinimalNavPill("FILTER", isSelectedProvider = {
-            activeFilterLabel.isNotBlank()
-        }) {
-            showFilterDialog()
-        }
-        topBar.addView(navFilterBtn)
+        topHeaderRow.addView(topBar)
 
-        navSettingsBtn = createMinimalNavPill("SETTINGS", isSelectedProvider = { false }) {
-            showSettingsDialog()
-        }
-        topBar.addView(navSettingsBtn)
-
-        topBarScroll.addView(topBar)
-        topHeaderRow.addView(topBarScroll)
-
-        // 3. Bahagian Kanan Tetap (Di TV: Butang SEARCH di sebelah kanan + Profil)
+        // 3. Bahagian Kanan Tetap (Di TV: Ikon Filter, Ikon Search, Ikon Settings & Profil)
         val rightPinnedGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(8), 0, 0, 0)
         }
 
-        searchTopBtn = createMinimalNavPill("SEARCH", isSelectedProvider = {
-            currentPath.contains("?s=")
-        }) {
+        navFilterBtn = createMinimalIconNavPill(
+            iconType = UiIcons.Type.FILTER,
+            label = "",
+            isSelectedProvider = { activeFilterLabel.isNotBlank() }
+        ) {
+            showFilterDialog()
+        }
+        rightPinnedGroup.addView(navFilterBtn)
+
+        searchTopBtn = createMinimalIconNavPill(
+            iconType = UiIcons.Type.SEARCH,
+            label = "",
+            isSelectedProvider = { currentPath.contains("?s=") }
+        ) {
             showSearchDialog()
         }
         rightPinnedGroup.addView(searchTopBtn)
+
+        navSettingsBtn = createMinimalIconNavPill(
+            iconType = UiIcons.Type.SETTINGS,
+            label = "",
+            isSelectedProvider = { false }
+        ) {
+            showSettingsDialog()
+        }
+        rightPinnedGroup.addView(navSettingsBtn)
+
         rightPinnedGroup.addView(createProfileChip())
 
         topHeaderRow.addView(rightPinnedGroup)
@@ -391,21 +395,23 @@ class MainActivity : Activity() {
         }
         contentColumn.addView(gridContainer)
 
-        // 6. Pagination Navigation (Minimal Box Text)
+        // 6. Pagination Navigation (Ikon Minimalis ‹ / ›)
         val paginationRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, dp(22), 0, dp(20))
         }
-        paginationRow.addView(createSleekButton("PREVIOUS", isPrimary = false) {
-            if (currentPage > 1) {
+        paginationRow.addView(createSleekButton("‹", isPrimary = false) {
+            if (currentPage > 1 && currentCategoryLabel != "CONTINUE WATCHING") {
                 currentPage--
                 loadCatalog(currentPath, currentPage)
             }
         })
-        paginationRow.addView(createSleekButton("NEXT", isPrimary = true) {
-            currentPage++
-            loadCatalog(currentPath, currentPage)
+        paginationRow.addView(createSleekButton("›", isPrimary = true) {
+            if (currentCategoryLabel != "CONTINUE WATCHING") {
+                currentPage++
+                loadCatalog(currentPath, currentPage)
+            }
         })
         contentColumn.addView(paginationRow)
 
@@ -430,7 +436,12 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        refreshContinueWatchingSection()
+        if (currentCategoryLabel == "CONTINUE WATCHING") {
+            openContinueWatchingTab()
+        } else {
+            continueWatchingContainer.visibility = View.GONE
+            continueWatchingContainer.removeAllViews()
+        }
         refreshRecommendationSection()
         mainHandler.removeCallbacks(heroCarouselRunnable)
         mainHandler.postDelayed(heroCarouselRunnable, 7000L)
@@ -511,7 +522,7 @@ class MainActivity : Activity() {
         return Button(this).apply {
             text = label
             isAllCaps = true
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             letterSpacing = 0.05f
             isFocusable = true
             isFocusableInTouchMode = false
@@ -519,7 +530,7 @@ class MainActivity : Activity() {
             minimumHeight = 0
             minWidth = 0
             minimumWidth = 0
-            setPadding(dp(15), dp(6), dp(15), dp(6))
+            setPadding(dp(13), dp(6), dp(13), dp(6))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -534,24 +545,63 @@ class MainActivity : Activity() {
         }
     }
 
+    private fun createMinimalIconNavPill(
+        iconType: UiIcons.Type,
+        label: String = "",
+        isSelectedProvider: () -> Boolean,
+        onClick: () -> Unit
+    ): Button {
+        return Button(this).apply {
+            text = label
+            isAllCaps = true
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            letterSpacing = 0.05f
+            isFocusable = true
+            isFocusableInTouchMode = false
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
+            UiIcons.attachIcon(this, iconType, sizeDp = 16, paddingDp = 6)
+            applyMinimalPillStyle(this, isSelected = isSelectedProvider(), hasFocus = false)
+            setOnFocusChangeListener { v, hasFocus ->
+                applyMinimalPillStyle(v as Button, isSelected = isSelectedProvider(), hasFocus = hasFocus)
+            }
+            setOnClickListener { onClick() }
+        }
+    }
+
     private fun applyMinimalPillStyle(btn: Button, isSelected: Boolean, hasFocus: Boolean) {
         when {
             hasFocus -> {
-                btn.setTextColor(Color.parseColor("#FFFFFF"))
+                val c = Color.parseColor("#FFFFFF")
+                btn.setTextColor(c)
+                UiIcons.syncIconTint(btn, c)
                 btn.typeface = Typeface.DEFAULT_BOLD
                 btn.background = createRoundedBg("#2E00D4B2", ACCENT_TEAL, 2, 24)
                 btn.scaleX = 1.04f
                 btn.scaleY = 1.04f
             }
             isSelected -> {
-                btn.setTextColor(Color.parseColor(TEXT_PRIMARY))
+                val c = Color.parseColor(TEXT_PRIMARY)
+                btn.setTextColor(c)
+                UiIcons.syncIconTint(btn, c)
                 btn.typeface = Typeface.DEFAULT_BOLD
                 btn.background = createRoundedBg("#1400D4B2", ACCENT_TEAL, 1, 24)
                 btn.scaleX = 1.0f
                 btn.scaleY = 1.0f
             }
             else -> {
-                btn.setTextColor(Color.parseColor("#8AB8C2"))
+                val c = Color.parseColor("#8AB8C2")
+                btn.setTextColor(c)
+                UiIcons.syncIconTint(btn, c)
                 btn.typeface = Typeface.DEFAULT
                 btn.background = createRoundedBg("#00000000", "#00000000", 0, 24)
                 btn.scaleX = 1.0f
@@ -590,7 +640,8 @@ class MainActivity : Activity() {
             )
         }
         if (::navFilterBtn.isInitialized) {
-            navFilterBtn.text = if (activeFilterLabel.isNotBlank()) "FILTER: $activeFilterLabel" else "FILTER"
+            navFilterBtn.text = activeFilterLabel
+            UiIcons.attachIcon(navFilterBtn, UiIcons.Type.FILTER, sizeDp = 16, paddingDp = 6)
             applyMinimalPillStyle(
                 navFilterBtn,
                 isSelected = activeFilterLabel.isNotBlank(),
@@ -920,11 +971,15 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        val playHeroBtn = createCompactHeroButton("PLAY NOW", isPrimary = true) {
+        val playHeroBtn = createCompactHeroButton("PLAY", isPrimary = true) {
             activeHeroItem?.let { onItemClicked(it, playImmediately = !it.isSeries) }
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.PLAY, sizeDp = 14, paddingDp = 6)
         }
         val infoHeroBtn = createCompactHeroButton("INFO & SERVER", isPrimary = false) {
             activeHeroItem?.let { onItemClicked(it, playImmediately = false) }
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.INFO, sizeDp = 14, paddingDp = 6)
         }
         actionRow.addView(playHeroBtn)
         actionRow.addView(infoHeroBtn)
@@ -1054,7 +1109,9 @@ class MainActivity : Activity() {
             setOnFocusChangeListener { v, hasFocus ->
                 val btn = v as Button
                 if (hasFocus) {
-                    btn.setTextColor(Color.parseColor("#FFFFFF"))
+                    val c = Color.parseColor("#FFFFFF")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = Typeface.DEFAULT_BOLD
                     btn.background = createRoundedBg("#3300D4B2", ACCENT_TEAL, 2, 24)
                     btn.scaleX = 1.04f
@@ -1062,7 +1119,9 @@ class MainActivity : Activity() {
                     mainHandler.removeCallbacks(heroCarouselRunnable)
                     mainHandler.postDelayed(heroCarouselRunnable, 9000L)
                 } else {
-                    btn.setTextColor(Color.parseColor(if (isPrimary) TEXT_PRIMARY else "#99F6E4"))
+                    val c = Color.parseColor(if (isPrimary) TEXT_PRIMARY else "#99F6E4")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                     btn.background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
                     btn.scaleX = 1.0f
@@ -1189,9 +1248,14 @@ class MainActivity : Activity() {
     }
 
     /**
-     * 3. Bahagian Sambung Menonton (Continue Watching)
+     * 3. Bahagian Sambung Menonton (Continue Watching) - Hanya dipaparkan di dalam halaman CONTINUE WATCHING sahaja
      */
     private fun refreshContinueWatchingSection() {
+        if (currentCategoryLabel != "CONTINUE WATCHING") {
+            continueWatchingContainer.visibility = View.GONE
+            continueWatchingContainer.removeAllViews()
+            return
+        }
         val historyList = ContinueWatchingManager.getList(this)
         if (historyList.isEmpty()) {
             continueWatchingContainer.visibility = View.GONE
@@ -1977,7 +2041,7 @@ class MainActivity : Activity() {
         listScroll.addView(optionsCol)
         modalRoot.addView(listScroll)
 
-        val closeBtn = createSleekButton("CLOSE", isPrimary = false) {
+        val closeBtn = createSleekButton("✕", isPrimary = false) {
             dialog.dismiss()
         }.apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -2134,7 +2198,7 @@ class MainActivity : Activity() {
             gravity = Gravity.END
         }
         if (activeFilterLabel.isNotBlank()) {
-            bottomRow.addView(createSleekButton("CLEAR FILTER", isPrimary = false) {
+            bottomRow.addView(createSleekButton("CLEAR", isPrimary = false) {
                 activeFilterLabel = ""
                 currentCategoryLabel = "HOME"
                 currentPath = "/latest"
@@ -2144,7 +2208,7 @@ class MainActivity : Activity() {
                 loadCatalog(currentPath, currentPage)
             })
         }
-        bottomRow.addView(createSleekButton("CLOSE", isPrimary = false) {
+        bottomRow.addView(createSleekButton("✕", isPrimary = false) {
             dialog.dismiss()
         })
         root.addView(bottomRow)
@@ -2362,7 +2426,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.END
         }
-        val cancelBtn = createSleekButton("CANCEL", isPrimary = false) {
+        val cancelBtn = createSleekButton("✕", isPrimary = false) {
             dialog.dismiss()
         }
         val saveBtn = createSleekButton("SAVE & APPLY", isPrimary = true) {

@@ -264,10 +264,12 @@ class SeriesDetailActivity : Activity() {
         }
         stage.addView(bottomDivider)
 
-        // Butang BACK di Penjuru Kiri Atas
-        val backBtn = createTvActionButton("BACK", isPrimary = false) {
+        // Butang Ikon BACK (←) di Penjuru Kiri Atas
+        val backBtn = createTvActionButton("", isPrimary = false) {
             finish()
         }.apply {
+            setPadding(dp(14), dp(8), dp(14), dp(8))
+            UiIcons.attachIcon(this, UiIcons.Type.BACK, sizeDp = 16, paddingDp = 0)
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -896,13 +898,17 @@ class SeriesDetailActivity : Activity() {
             setOnFocusChangeListener { v, hasFocus ->
                 val btn = v as Button
                 if (hasFocus) {
-                    btn.setTextColor(Color.parseColor("#FFFFFF"))
+                    val c = Color.parseColor("#FFFFFF")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = Typeface.DEFAULT_BOLD
                     btn.background = createRoundedBg("#3300D4B2", MainActivity.ACCENT_TEAL, 2, 24)
                     btn.scaleX = 1.04f
                     btn.scaleY = 1.04f
                 } else {
-                    btn.setTextColor(Color.parseColor(if (isPrimary) MainActivity.TEXT_PRIMARY else "#8AB8C2"))
+                    val c = Color.parseColor(if (isPrimary) MainActivity.TEXT_PRIMARY else "#8AB8C2")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                     btn.background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
                     btn.scaleX = 1.0f

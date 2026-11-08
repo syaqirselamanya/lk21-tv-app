@@ -243,16 +243,16 @@ class SeriesDetailActivity : Activity() {
         stage.addView(bottomVignette)
 
         val backBtn = Button(this).apply {
-            text = "BACK"
-            isAllCaps = true
+            text = ""
+            isAllCaps = false
             setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.05f
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg("#D9071F29", MainActivity.BORDER_SUBTLE_TEAL, 1, 8)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
+            minWidth = 0
+            minimumWidth = 0
+            background = createRoundedBg("#D9071F29", MainActivity.BORDER_SUBTLE_TEAL, 1, 24)
+            setPadding(dp(13), dp(9), dp(13), dp(9))
+            UiIcons.attachIcon(this, UiIcons.Type.BACK, sizeDp = 16, paddingDp = 0, colorInt = Color.parseColor(MainActivity.TEXT_PRIMARY))
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT,

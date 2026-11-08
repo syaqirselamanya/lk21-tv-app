@@ -256,7 +256,9 @@ class PlayerActivity : Activity() {
             )
         }
 
-        val backBtn = createOsdButton("BACK", isAccent = false) { finish() }
+        val backBtn = createOsdButton("", isAccent = false) { finish() }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.BACK, sizeDp = 16, paddingDp = 0)
+        }
 
         titleTextView = TextView(this).apply {
             text = currentTitle.uppercase()
@@ -273,18 +275,23 @@ class PlayerActivity : Activity() {
         episodeListBtn = createOsdButton("EPISODES", isAccent = false) {
             showEpisodeSwitchDialog()
         }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.EPISODES, sizeDp = 15, paddingDp = 6)
             visibility = View.GONE
         }
 
         serverBadgeBtn = createOsdButton("SERVER: P2P", isAccent = true) {
             showServerSwitchDialog()
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.SERVER, sizeDp = 15, paddingDp = 6)
         }
 
         aspectBtn = createOsdButton(fitModes[fitIndex].second, isAccent = false) {
             cycleAspectRatio()
+        }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.ASPECT, sizeDp = 15, paddingDp = 6)
         }
 
-        val hideTopBarBtn = createOsdButton("HIDE BAR", isAccent = false) {
+        val hideTopBarBtn = createOsdButton("✕", isAccent = false) {
             osdContainer.visibility = View.GONE
             webView.requestFocus()
         }
@@ -1243,13 +1250,17 @@ class PlayerActivity : Activity() {
             setOnFocusChangeListener { v, hasFocus ->
                 val btn = v as Button
                 if (hasFocus) {
-                    btn.setTextColor(Color.parseColor("#FFFFFF"))
+                    val c = Color.parseColor("#FFFFFF")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = Typeface.DEFAULT_BOLD
                     btn.background = createRoundedBg("#3300D4B2", "#00D4B2", 2, 24)
                     btn.scaleX = 1.05f
                     btn.scaleY = 1.05f
                 } else {
-                    btn.setTextColor(Color.parseColor(if (isAccent) "#F0FDFA" else "#99F6E4"))
+                    val c = Color.parseColor(if (isAccent) "#F0FDFA" else "#99F6E4")
+                    btn.setTextColor(c)
+                    UiIcons.syncIconTint(btn, c)
                     btn.typeface = if (isAccent) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
                     btn.background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
                     btn.scaleX = 1.0f
