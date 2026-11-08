@@ -2436,7 +2436,8 @@ class MainActivity : Activity() {
         if (searchBarContainer.visibility == View.VISIBLE) {
             hideKeyboard()
             searchBarContainer.visibility = View.GONE
-            setBottomTabActive(0)
+            applyMinimalPillStyle(floatingSearchBtn, isSelected = false)
+            setHeaderTabActive(activeHeaderTabIndex)
             return
         }
         super.onBackPressed()
