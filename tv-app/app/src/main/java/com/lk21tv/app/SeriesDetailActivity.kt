@@ -74,7 +74,7 @@ class SeriesDetailActivity : Activity() {
         plot = intent.getStringExtra("PLOT") ?: ""
         rating = intent.getStringExtra("RATING") ?: ""
         genre = intent.getStringExtra("GENRE") ?: ""
-        source = intent.getStringExtra("SOURCE") ?: if (Watch32Scraper.isWatch32Uri(seriesUrl)) "WATCH32" else "LK21"
+        source = intent.getStringExtra("SOURCE") ?: "LK21"
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
@@ -405,21 +405,13 @@ class SeriesDetailActivity : Activity() {
     private fun fetchFullSeriesData() {
         executor.execute {
             try {
-                val rawDetail: MediaDetail = if (Watch32Scraper.isWatch32Uri(seriesUrl)) {
-                    Watch32Scraper.fetchDetail(seriesUrl)
-                } else {
-                    val lk = try {
-                        LK21Scraper.fetchDetail(baseUrl, seriesUrl)
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (lk != null && lk.episodes.isNotEmpty()) {
-                        Watch32Scraper.enrichSeriesDetail(lk)
-                    } else {
-                        Watch32Scraper.findFallbackDetail(seriesTitle, preferSeries = true)
-                            ?: throw IllegalStateException("No episodes found.")
-                    }
-                }
+                val lk = try {
+                    LK21Scraper.fetchDetail(baseUrl, seriesUrl)
+                } catch (_: Exception) {
+                    null
+                } ?: throw IllegalStateException("No episodes found.")
+
+                val rawDetail = Watch32Scraper.enrichSeriesDetail(lk)
 
                 mainHandler.post {
                     loadedDetail = rawDetail
@@ -768,30 +760,12 @@ class SeriesDetailActivity : Activity() {
     }
 
     private fun playEpisode(ep: EpisodeItem) {
-        if (Watch32Scraper.isWatch32Uri(ep.url)) {
-            val tmdbId = Regex("""(?:tv|movie)/(\d+)""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
-                ?: Regex("""\b(\d{3,8})\b""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
-                ?: 0
-            val mirrors = if (tmdbId > 0) {
-                Watch32Scraper.buildMirrors(tmdbId, isSeries = true, season = ep.seasonNumber, episode = ep.episodeNumber)
-            } else {
-                emptyList()
-            }
-            launchPlayer(
-                epUrl = ep.url,
-                epLabel = ep.label,
-                embedUrl = mirrors.firstOrNull()?.embedUrl ?: "",
-                serverName = mirrors.firstOrNull()?.name ?: "W32 • VidLink HD",
-                mirrors = mirrors
-            )
-        } else {
-            launchPlayer(
-                epUrl = ep.url,
-                epLabel = ep.label,
-                embedUrl = "",
-                serverName = "P2P Direct"
-            )
-        }
+        launchPlayer(
+            epUrl = ep.url,
+            epLabel = ep.label,
+            embedUrl = "",
+            serverName = "P2P Direct"
+        )
     }
 
     private fun launchPlayer(

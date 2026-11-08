@@ -99,8 +99,7 @@ object AdBlocker {
         "vidsrc.sh",
         "vidsrc.cc",
         "111movies.com",
-        "vidzee.wtf",
-        "watch32.site"
+        "vidzee.wtf"
     )
 
     // Dalam mod pemain video, sekat sebarang cubaan redirect ke laman iklan atau laman utama lk21.de

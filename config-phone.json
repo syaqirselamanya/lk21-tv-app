@@ -1,7 +1,7 @@
 {
-  "versionCode": 5,
-  "versionName": "1.1.3",
+  "versionCode": 6,
+  "versionName": "1.1.4",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.3.apk",
-  "changelog": "Phone Update v1.1.3: Fix Watch32 streaming: supports both watch32.site & watch32:// URLs, auto failover between 2026 mirrors (CineSrc, VidLink, VidEasy, MultiEmbed, 2Embed), crash prevention, and permanent signing key."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.4.apk",
+  "changelog": "Pure LK21 Engine: Removed watch32.site domain and unstable web embed servers to prevent movie crashing. High stability, fast direct HLS streams, and zero-ad playback."
 }

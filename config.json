@@ -1,7 +1,7 @@
 {
-  "versionCode": 14,
-  "versionName": "4.0.2",
+  "versionCode": 15,
+  "versionName": "4.0.3",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.2.apk",
-  "changelog": "Fix Watch32 streaming: supports both watch32.site & watch32:// URLs, auto failover between 2026 mirrors (CineSrc, VidLink, VidEasy, MultiEmbed, 2Embed), crash prevention, and permanent signing key."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.3.apk",
+  "changelog": "Pure LK21 Engine: Removed watch32.site domain and unstable web embed servers to prevent movie crashing. High stability, fast direct HLS streams, and zero-ad playback."
 }

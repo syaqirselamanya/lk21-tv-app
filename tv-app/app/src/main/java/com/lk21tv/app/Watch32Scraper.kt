@@ -87,13 +87,9 @@ object Watch32Scraper {
         "multiembed.mov"
     )
 
-    fun isWatch32Uri(url: String): Boolean =
-        url.startsWith("watch32://") || url.contains("watch32.site")
+    fun isWatch32Uri(url: String): Boolean = false
 
-    fun isWatch32EmbedUrl(url: String): Boolean {
-        val lower = url.lowercase(Locale.ROOT)
-        return WATCH32_EMBED_HOSTS.any { lower.contains(it) }
-    }
+    fun isWatch32EmbedUrl(url: String): Boolean = false
 
     private fun fetchJson(url: String): JSONObject? {
         return try {
@@ -450,50 +446,15 @@ object Watch32Scraper {
      * Auto-Fallback: Cari padanan cerita di Watch32 apabila pelayan LK21 disekat / gagal / tiada strim
      */
     fun findFallbackDetail(rawTitle: String, episodeLabel: String = "", preferSeries: Boolean = false): MediaDetail? {
-        val (cleanTitle, yearHint) = extractCleanTitleAndYear(rawTitle)
-        if (cleanTitle.isBlank()) return null
-
-        val match = searchBestTmdbMatch(cleanTitle, yearHint, preferSeries || episodeLabel.isNotBlank())
-            ?: return null
-
-        val (tmdbId, isTv) = match
-        return if (isTv) {
-            val (sNum, eNum) = parseSeasonEpisode(episodeLabel)
-            val uri = if (episodeLabel.isNotBlank()) {
-                "watch32://tv/$tmdbId/$sNum/$eNum"
-            } else {
-                "watch32://tv/$tmdbId"
-            }
-            try {
-                fetchDetail(uri)
-            } catch (_: Exception) {
-                null
-            }
-        } else {
-            try {
-                fetchDetail("watch32://movie/$tmdbId")
-            } catch (_: Exception) {
-                null
-            }
-        }
+        return null
     }
 
-    /**
-     * Sediakan senarai mirror sandaran Watch32 untuk disuntik ke dalam cerita LK21
-     * supaya pengguna boleh tukar terus ke server Watch32 dalam pemain video!
-     */
     fun findBackupMirrorsForLk21(
         rawTitle: String,
         episodeLabel: String = "",
         isSeries: Boolean = false
     ): List<MirrorItem> {
-        val (cleanTitle, yearHint) = extractCleanTitleAndYear(rawTitle)
-        if (cleanTitle.isBlank()) return emptyList()
-        val match = searchBestTmdbMatch(cleanTitle, yearHint, isSeries || episodeLabel.isNotBlank())
-            ?: return emptyList()
-        val (tmdbId, isTv) = match
-        val (sNum, eNum) = parseSeasonEpisode(episodeLabel)
-        return buildMirrors(tmdbId, isTv, sNum, eNum).take(5)
+        return emptyList()
     }
 
     /**

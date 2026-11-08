@@ -443,90 +443,33 @@ class PlayerActivity : Activity() {
             try {
                 var embedToResolve = targetEmbedUrl
                 var effectiveLabel = serverLabel
-                var usedWatch32Fallback = false
 
                 if (embedToResolve.isBlank() && targetPageUrl.isNotBlank()) {
-                    if (Watch32Scraper.isWatch32Uri(targetPageUrl)) {
-                        val detail = Watch32Scraper.fetchDetail(targetPageUrl)
-                        currentTitle = detail.title
-                        if (posterUrl.isBlank()) posterUrl = detail.posterUrl
-                        if (currentGenre.isBlank()) currentGenre = detail.genre
-                        mirrors.clear()
-                        mirrors.addAll(detail.mirrors)
-                        episodes.clear()
-                        episodes.addAll(detail.episodes)
+                    val lkDetail = try {
+                        LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
+                    } catch (_: Exception) {
+                        null
+                    }
 
-                        if (detail.mainEmbedUrl.isNullOrBlank() && detail.episodes.isNotEmpty()) {
-                            val firstEp = detail.episodes.first()
-                            val epDetail = Watch32Scraper.fetchDetail(firstEp.url)
-                            pageUrl = firstEp.url
-                            currentTitle = epDetail.title
+                    if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
+                        currentTitle = lkDetail.title
+                        if (posterUrl.isBlank()) posterUrl = lkDetail.posterUrl
+                        if (currentGenre.isBlank()) currentGenre = lkDetail.genre
+                        mirrors.clear()
+                        mirrors.addAll(lkDetail.mirrors)
+                        episodes.clear()
+                        episodes.addAll(lkDetail.episodes)
+
+                        if (lkDetail.mainEmbedUrl.isNullOrBlank() && lkDetail.episodes.isNotEmpty()) {
+                            val firstEp = lkDetail.episodes.first()
+                            val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
+                            currentTitle = "${lkDetail.title} • ${firstEp.label}"
                             currentEpisodeLabel = firstEp.label
                             mirrors.clear()
                             mirrors.addAll(epDetail.mirrors)
                             embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
                         } else {
-                            embedToResolve = detail.mainEmbedUrl ?: detail.mirrors.firstOrNull()?.embedUrl ?: ""
-                        }
-                        effectiveLabel = mirrors.firstOrNull()?.name ?: "W32 • VidLink HD"
-                    } else {
-                        val lkDetail = try {
-                            LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
-                        } catch (_: Exception) {
-                            null
-                        }
-
-                        if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
-                            currentTitle = lkDetail.title
-                            if (posterUrl.isBlank()) posterUrl = lkDetail.posterUrl
-                            if (currentGenre.isBlank()) currentGenre = lkDetail.genre
-                            mirrors.clear()
-                            mirrors.addAll(lkDetail.mirrors)
-                            episodes.clear()
-                            episodes.addAll(lkDetail.episodes)
-
-                            if (lkDetail.mainEmbedUrl.isNullOrBlank() && lkDetail.episodes.isNotEmpty()) {
-                                val firstEp = lkDetail.episodes.first()
-                                val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
-                                currentTitle = "${lkDetail.title} • ${firstEp.label}"
-                                currentEpisodeLabel = firstEp.label
-                                mirrors.clear()
-                                mirrors.addAll(epDetail.mirrors)
-                                embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
-                            } else {
-                                embedToResolve = lkDetail.mainEmbedUrl ?: lkDetail.mirrors.firstOrNull()?.embedUrl ?: ""
-                            }
-
-                            val backupMirrors = Watch32Scraper.findBackupMirrorsForLk21(
-                                rawTitle = currentTitle,
-                                episodeLabel = currentEpisodeLabel,
-                                isSeries = episodes.isNotEmpty() || currentEpisodeLabel.isNotBlank()
-                            )
-                            backupMirrors.forEach { bm ->
-                                if (mirrors.none { it.embedUrl == bm.embedUrl }) {
-                                    mirrors.add(bm)
-                                }
-                            }
-                        }
-
-                        if (embedToResolve.isBlank()) {
-                            val fbDetail = Watch32Scraper.findFallbackDetail(
-                                rawTitle = currentTitle,
-                                episodeLabel = currentEpisodeLabel,
-                                preferSeries = currentEpisodeLabel.isNotBlank()
-                            )
-                            if (fbDetail != null) {
-                                usedWatch32Fallback = true
-                                if (posterUrl.isBlank()) posterUrl = fbDetail.posterUrl
-                                if (currentGenre.isBlank()) currentGenre = fbDetail.genre
-                                mirrors.clear()
-                                mirrors.addAll(fbDetail.mirrors)
-                                if (episodes.isEmpty()) {
-                                    episodes.addAll(fbDetail.episodes)
-                                }
-                                embedToResolve = fbDetail.mainEmbedUrl ?: fbDetail.mirrors.firstOrNull()?.embedUrl ?: ""
-                                effectiveLabel = fbDetail.mirrors.firstOrNull()?.name ?: "W32 • VidLink HD"
-                            }
+                            embedToResolve = lkDetail.mainEmbedUrl ?: lkDetail.mirrors.firstOrNull()?.embedUrl ?: ""
                         }
                     }
                 }
@@ -1066,11 +1009,7 @@ class PlayerActivity : Activity() {
                 sessionWatchedSec = 0
                 lastSavedSec = 0
                 isStreamReady = false
-                val defaultLabel = if (Watch32Scraper.isWatch32Uri(ep.url)) {
-                    "W32 • VidLink HD"
-                } else {
-                    "P2P Direct"
-                }
+                val defaultLabel = "P2P Direct"
                 startStreamResolution(ep.url, "", defaultLabel)
             }
             .setNegativeButton("CANCEL", null)

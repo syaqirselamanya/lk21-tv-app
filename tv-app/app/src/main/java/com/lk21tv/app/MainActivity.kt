@@ -177,8 +177,8 @@ class MainActivity : Activity() {
         // Profil aktif (Netflix-style): tekan untuk tukar / urus profil
         topBar.addView(createProfileChip())
 
-        // Pastikan mod sumber sentiasa AUTO (Gabungan Pintar LK21 + Watch32) apabila butang disembunyikan
-        sourceMode = "AUTO"
+        // Pastikan mod sumber sentiasa LK21
+        sourceMode = "LK21"
 
         // Butang Tukar Sumber Pelayan (disembunyikan mengikut tetapan UI terkini)
         sourceModeBtn = createCategoryBox(getSourceModeButtonLabel()) {
@@ -520,82 +520,20 @@ class MainActivity : Activity() {
 
         executor.execute {
             try {
-                var usedAutoFallback = false
                 val combined = mutableListOf<MediaItem>()
-
-                when (mode) {
-                    "WATCH32" -> {
-                        combined.addAll(Watch32Scraper.fetchCatalog(path, page))
-                    }
-                    "LK21" -> {
-                        val lkItems = try {
-                            LK21Scraper.fetchCatalog(baseUrl, path, page)
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                        if (lkItems.isNotEmpty()) {
-                            combined.addAll(lkItems)
-                        } else {
-                            // Auto-fallback ke Watch32 jika LK21 down/disekat atau carian tiada dalam LK21
-                            val w32Items = Watch32Scraper.fetchCatalog(path, page)
-                            if (w32Items.isNotEmpty()) {
-                                usedAutoFallback = true
-                                combined.addAll(w32Items)
-                            }
-                        }
-                    }
-                    else -> {
-                        // Mod AUTO (Gabungan Pintar): Tarik LK21 & Watch32 secara selari!
-                        val w32Future = executor.submit(Callable {
-                            try {
-                                Watch32Scraper.fetchCatalog(path, page)
-                            } catch (_: Exception) {
-                                emptyList()
-                            }
-                        })
-                        val lkItems = try {
-                            LK21Scraper.fetchCatalog(baseUrl, path, page)
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-                        val w32Items = try {
-                            w32Future.get()
-                        } catch (_: Exception) {
-                            emptyList()
-                        }
-
-                        if (lkItems.isEmpty() && w32Items.isNotEmpty()) {
-                            usedAutoFallback = true
-                            combined.addAll(w32Items)
-                        } else {
-                            val seenKeys = HashSet<String>()
-                            lkItems.forEach { item ->
-                                seenKeys.add(normalizeTitleKey(item.title))
-                                combined.add(item)
-                            }
-                            // Tambah cerita eksklusif dari Watch32 yang tiada dalam LK21
-                            w32Items.forEach { item ->
-                                val key = normalizeTitleKey(item.title)
-                                if (key.isNotBlank() && !seenKeys.contains(key)) {
-                                    seenKeys.add(key)
-                                    combined.add(item)
-                                }
-                            }
-                        }
-                    }
+                val lkItems = try {
+                    LK21Scraper.fetchCatalog(baseUrl, path, page)
+                } catch (_: Exception) {
+                    emptyList()
                 }
+                combined.addAll(lkItems)
 
                 mainHandler.post {
                     progressBar.visibility = View.GONE
                     if (combined.isEmpty()) {
                         statusText.text = "No titles found."
                     } else {
-                        statusText.text = when {
-                            usedAutoFallback -> "WATCH32 AUTO-FALLBACK  •  ${combined.size} TITLES"
-                            mode == "WATCH32" -> "WATCH32 GLOBAL  •  ${combined.size} TITLES"
-                            mode == "LK21" -> "LK21  •  ${combined.size} TITLES"
-                            else -> "${combined.size} TITLES"
-                        }
+                        statusText.text = "${combined.size} TITLES"
                         allLoadedItems.clear()
                         allLoadedItems.addAll(combined)
 
@@ -1006,7 +944,7 @@ class MainActivity : Activity() {
                             episodeOrQuality = if (item.episodeLabel.isNotBlank()) item.episodeLabel else "${item.remainingMinutes}M LEFT",
                             genre = item.genre,
                             isSeries = item.episodeLabel.isNotBlank(),
-                            source = if (Watch32Scraper.isWatch32Uri(item.pageUrl)) "WATCH32" else "LK21",
+                            source = "LK21",
                             statusBadge = "WATCHED ${item.progressPercent}%"
                         )
                         scheduleHeroSpotlight(cwHeroItem)
@@ -1431,11 +1369,7 @@ class MainActivity : Activity() {
         }
 
         if (playImmediately && !item.isSeries) {
-            val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) {
-                "W32 • VidLink HD"
-            } else {
-                "P2P Direct"
-            }
+            val defaultSrv = "P2P Direct"
             launchVideoPlayer(
                 pageUrl = item.url,
                 embedUrl = "",
@@ -1452,31 +1386,12 @@ class MainActivity : Activity() {
 
         executor.execute {
             try {
-                val detail: MediaDetail = if (Watch32Scraper.isWatch32Uri(item.url)) {
-                    Watch32Scraper.fetchDetail(item.url)
-                } else {
-                    val lkDetail = try {
-                        LK21Scraper.fetchDetail(baseUrl, item.url)
-                    } catch (_: Exception) {
-                        null
-                    }
-                    if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
-                        val mergedMirrors = lkDetail.mirrors.toMutableList()
-                        val w32Backups = Watch32Scraper.findBackupMirrorsForLk21(
-                            rawTitle = lkDetail.title,
-                            isSeries = lkDetail.episodes.isNotEmpty() || item.isSeries
-                        )
-                        w32Backups.forEach { bm ->
-                            if (mergedMirrors.none { it.embedUrl == bm.embedUrl }) {
-                                mergedMirrors.add(bm)
-                            }
-                        }
-                        Watch32Scraper.enrichMovieDetail(lkDetail.copy(mirrors = mergedMirrors))
-                    } else {
-                        Watch32Scraper.findFallbackDetail(item.title, preferSeries = item.isSeries)
-                            ?: throw IllegalStateException("Server unreachable")
-                    }
-                }
+                val lkDetail = try {
+                    LK21Scraper.fetchDetail(baseUrl, item.url)
+                } catch (_: Exception) {
+                    null
+                } ?: throw IllegalStateException("Server unreachable")
+                val detail = Watch32Scraper.enrichMovieDetail(lkDetail)
 
                 mainHandler.post {
                     progressBar.visibility = View.GONE
@@ -1512,7 +1427,7 @@ class MainActivity : Activity() {
             } catch (e: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    val defaultSrv = if (Watch32Scraper.isWatch32Uri(item.url)) "W32 • VidLink HD" else "P2P Direct"
+                    val defaultSrv = "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = item.url,
                         embedUrl = "",
@@ -1614,7 +1529,7 @@ class MainActivity : Activity() {
             detail.episodes.forEach { ep ->
                 val epBtn = createSleekButton(ep.label.uppercase(), isPrimary = false) {
                     dialog.dismiss()
-                    val epSrv = if (Watch32Scraper.isWatch32Uri(ep.url)) "W32 • VidLink HD" else "P2P Direct"
+                    val epSrv = "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = ep.url,
                         embedUrl = "",
