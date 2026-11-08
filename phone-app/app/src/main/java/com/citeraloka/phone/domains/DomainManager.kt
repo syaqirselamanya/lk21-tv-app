@@ -16,12 +16,13 @@ data class DualDomainMediaResult(
     val watch32Detail: MediaDetail?,
     val preferredDomain: String
 ) {
-    fun primaryDetail(): MediaDetail? {
-        return when (preferredDomain) {
+    val primaryDetail: MediaDetail?
+        get() = when (preferredDomain) {
             Watch32Domain.ID -> watch32Detail ?: lk21Detail
             else -> lk21Detail ?: watch32Detail
         }
-    }
+
+    fun primaryDetail(): MediaDetail? = primaryDetail
 
     fun hasBothDomains(): Boolean = lk21Detail != null && watch32Detail != null
 }
@@ -31,6 +32,7 @@ object DomainManager {
     private const val PREFS_NAME = "citeraloka_prefs"
     private const val KEY_LK21_ENABLED = "domain_lk21_enabled"
     private const val KEY_WATCH32_ENABLED = "domain_watch32_enabled"
+    private val bgPool = java.util.concurrent.Executors.newFixedThreadPool(4)
 
     fun isLk21Enabled(context: Context): Boolean {
         val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -42,6 +44,20 @@ object DomainManager {
         return prefs.getBoolean(KEY_WATCH32_ENABLED, true)
     }
 
+    fun setLk21Enabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_LK21_ENABLED, enabled)
+            .apply()
+    }
+
+    fun setWatch32Enabled(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean(KEY_WATCH32_ENABLED, enabled)
+            .apply()
+    }
+
     fun setDomainsEnabled(context: Context, lk21Enabled: Boolean, watch32Enabled: Boolean) {
         val safeLk21 = if (!lk21Enabled && !watch32Enabled) true else lk21Enabled
         context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -49,6 +65,16 @@ object DomainManager {
             .putBoolean(KEY_LK21_ENABLED, safeLk21)
             .putBoolean(KEY_WATCH32_ENABLED, watch32Enabled)
             .apply()
+    }
+
+    fun getDomainStatusBadge(context: Context): String {
+        val lk = isLk21Enabled(context)
+        val w32 = isWatch32Enabled(context)
+        return when {
+            lk && w32 -> "BOTH"
+            w32 -> "W32"
+            else -> "LK21"
+        }
     }
 
     fun getDomainButtonLabel(context: Context): String {
@@ -70,6 +96,13 @@ object DomainManager {
             else -> "LK21"
         }
     }
+
+    fun fetchCatalog(
+        context: Context,
+        baseUrl: String,
+        path: String,
+        page: Int
+    ): List<MediaItem> = fetchCatalog(context, bgPool, baseUrl, path, page)
 
     fun fetchCatalog(
         context: Context,
@@ -123,6 +156,20 @@ object DomainManager {
         }
         return combined
     }
+
+    fun fetchDualDetails(
+        context: Context,
+        lk21BaseUrl: String,
+        primaryUrl: String,
+        fallbackTitle: String,
+        isSeriesHint: Boolean
+    ): DualDomainMediaResult = fetchDualDetails(
+        executor = bgPool,
+        baseUrl = lk21BaseUrl,
+        pageUrl = primaryUrl,
+        title = fallbackTitle,
+        isSeries = isSeriesHint
+    )
 
     fun fetchDualDetails(
         executor: ExecutorService,

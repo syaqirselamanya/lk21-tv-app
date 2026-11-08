@@ -841,7 +841,7 @@ class SeriesDetailActivity : Activity() {
     }
 
     private fun playEpisode(ep: EpisodeItem) {
-        val defaultServer = if (Watch32Scraper.isWatch32Url(ep.url)) "Cinezo (No Ads)" else "P2P Direct"
+        val defaultServer = if (Watch32Scraper.isWatch32Uri(ep.url)) "Cinezo (No Ads)" else "P2P Direct"
         launchPlayer(
             epUrl = ep.url,
             epLabel = ep.label,
