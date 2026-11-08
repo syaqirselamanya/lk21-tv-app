@@ -488,9 +488,6 @@ class PlayerActivity : Activity() {
                     titleTextView.text = currentTitle.uppercase()
                     serverBadgeBtn.text = "SERVER: ${resolved.serverName}"
                     episodeListBtn.visibility = if (episodes.isNotEmpty()) View.VISIBLE else View.GONE
-                    if (usedWatch32Fallback) {
-                        showCenterToast("AUTO-FALLBACK: WATCH32 SERVER ACTIVE")
-                    }
 
                     when {
                         resolved.isDirectHls -> loadDirectHlsPlayer(resolved.streamUrl, resolved.referer)
