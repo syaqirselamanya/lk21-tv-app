@@ -25,6 +25,8 @@ import android.view.Window
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
+import com.citeraloka.phone.domains.DomainManager
+import com.citeraloka.phone.domains.DualDomainMediaResult
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -300,7 +302,7 @@ class MainActivity : Activity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setBackgroundColor(Color.parseColor(BG_SURFACE_TEAL))
-            setPadding(dp(16), dp(10), dp(16), dp(8))
+            setPadding(dp(14), dp(10), dp(14), dp(8))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -312,48 +314,99 @@ class MainActivity : Activity() {
             val brandIcon = ImageView(this).apply {
                 setImageResource(iconResId)
                 scaleType = ImageView.ScaleType.FIT_CENTER
-                layoutParams = LinearLayout.LayoutParams(dp(32), dp(32)).apply {
-                    rightMargin = dp(10)
+                layoutParams = LinearLayout.LayoutParams(dp(30), dp(30)).apply {
+                    rightMargin = dp(8)
                 }
             }
             header.addView(brandIcon)
         }
 
-        val brandTextCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+        // Pinned Top-Left SEARCH button (bujur minimal)
+        val topSearchBtn = Button(this).apply {
+            text = "SEARCH"
+            isAllCaps = true
+            setTextColor(Color.parseColor("#8AB8C2"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.DEFAULT
+            letterSpacing = 0.05f
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            background = createRoundedBg("#1A0B2B38", "#00000000", 0, 24)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
+            setOnClickListener {
+                if (searchBarContainer.visibility == View.VISIBLE) {
+                    hideKeyboard()
+                    searchBarContainer.visibility = View.GONE
+                    background = createRoundedBg("#1A0B2B38", "#00000000", 0, 24)
+                    setTextColor(Color.parseColor("#8AB8C2"))
+                    typeface = Typeface.DEFAULT
+                } else {
+                    searchBarContainer.visibility = View.VISIBLE
+                    background = createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+                    setTextColor(Color.parseColor(TEXT_PRIMARY))
+                    typeface = Typeface.DEFAULT_BOLD
+                    searchInput.requestFocus()
+                    val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+                    imm?.showSoftInput(searchInput, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
         }
+        header.addView(topSearchBtn)
 
-        val brandTitle = TextView(this).apply {
-            text = "CITERALOKA"
-            setTextColor(Color.parseColor(ACCENT_TEAL))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.12f
-        }
-
-        val brandSub = TextView(this).apply {
-            text = "MOBILE STREAM"
-            setTextColor(Color.parseColor(TEXT_MUTED))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 8.5f)
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.22f
-        }
-
-        brandTextCol.addView(brandTitle)
-        brandTextCol.addView(brandSub)
-        header.addView(brandTextCol)
-
-        val updateBtn = Button(this).apply {
-            text = "UPDATE"
+        // Pinned Top-Left DOMAIN selector button (bujur minimal)
+        val domainBtn = Button(this).apply {
+            text = "DOMAIN: ${DomainManager.getDomainStatusBadge(this@MainActivity)}"
             isAllCaps = true
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
             typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.04f
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            background = createRoundedBg("#1F00D4B2", ACCENT_TEAL, 1, 24)
+            setPadding(dp(12), dp(6), dp(12), dp(6))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply {
+                rightMargin = dp(6)
+            }
+            setOnClickListener {
+                showDomainDialog {
+                    text = "DOMAIN: ${DomainManager.getDomainStatusBadge(this@MainActivity)}"
+                    loadCatalog(currentPath, currentPage)
+                }
+            }
+        }
+        header.addView(domainBtn)
+
+        val spacer = View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(0, 1, 1f)
+        }
+        header.addView(spacer)
+
+        val updateBtn = Button(this).apply {
+            text = "UPDATE"
+            isAllCaps = true
+            setTextColor(Color.parseColor("#8AB8C2"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.DEFAULT
             letterSpacing = 0.05f
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 6)
+            minWidth = 0
+            minimumWidth = 0
+            background = createRoundedBg("#1A0B2B38", "#00000000", 0, 24)
             setPadding(dp(12), dp(6), dp(12), dp(6))
             setOnClickListener {
                 AppUpdateManager.checkUpdate(this@MainActivity, isManual = true)
@@ -362,6 +415,122 @@ class MainActivity : Activity() {
         header.addView(updateBtn)
 
         return header
+    }
+
+    private fun showDomainDialog(onChanged: () -> Unit) {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val dm = resources.displayMetrics
+        val modalWidth = (dm.widthPixels * 0.90f).toInt().coerceAtMost(dp(400))
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createRoundedBg(BG_SURFACE_TEAL, ACCENT_TEAL, 2, 18)
+            setPadding(dp(20), dp(18), dp(20), dp(18))
+            layoutParams = ViewGroup.LayoutParams(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val titleView = TextView(this).apply {
+            text = "PILIH DOMAIN SERVER"
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+        }
+        root.addView(titleView)
+
+        val subView = TextView(this).apply {
+            text = "Tick satu atau kedua-dua domain (1. LK21 / 2. WATCH32):"
+            setTextColor(Color.parseColor(TEXT_SECONDARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(0, dp(4), 0, dp(14))
+        }
+        root.addView(subView)
+
+        var lkChecked = DomainManager.isLk21Enabled(this)
+        var w32Checked = DomainManager.isWatch32Enabled(this)
+
+        lateinit var lkBtn: Button
+        lateinit var w32Btn: Button
+
+        fun refreshTickButtons() {
+            lkBtn.text = if (lkChecked) "[✓]  1. LK21 (Official)" else "[   ]  1. LK21 (Official)"
+            lkBtn.typeface = if (lkChecked) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            lkBtn.setTextColor(Color.parseColor(if (lkChecked) TEXT_PRIMARY else "#8AB8C2"))
+            lkBtn.background = if (lkChecked) {
+                createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+
+            w32Btn.text = if (w32Checked) "[✓]  2. WATCH32 (watch32.site)" else "[   ]  2. WATCH32 (watch32.site)"
+            w32Btn.typeface = if (w32Checked) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            w32Btn.setTextColor(Color.parseColor(if (w32Checked) TEXT_PRIMARY else "#8AB8C2"))
+            w32Btn.background = if (w32Checked) {
+                createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+        }
+
+        lkBtn = Button(this).apply {
+            isAllCaps = false
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(10) }
+            setOnClickListener {
+                if (lkChecked && !w32Checked) {
+                    w32Checked = true
+                }
+                lkChecked = !lkChecked
+                refreshTickButtons()
+            }
+        }
+
+        w32Btn = Button(this).apply {
+            isAllCaps = false
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 13f)
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(16) }
+            setOnClickListener {
+                if (w32Checked && !lkChecked) {
+                    lkChecked = true
+                }
+                w32Checked = !w32Checked
+                refreshTickButtons()
+            }
+        }
+
+        refreshTickButtons()
+        root.addView(lkBtn)
+        root.addView(w32Btn)
+
+        val applyBtn = createTouchButton("SIMPAN & MUAT SEMULA", isPrimary = true) {
+            DomainManager.setLk21Enabled(this, lkChecked)
+            DomainManager.setWatch32Enabled(this, w32Checked)
+            dialog.dismiss()
+            onChanged()
+        }.apply {
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        root.addView(applyBtn)
+
+        dialog.setContentView(root)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
+        dialog.window?.setLayout(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
     }
 
     private fun buildInlineSearchBar(): LinearLayout {
@@ -384,7 +553,7 @@ class MainActivity : Activity() {
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setHintTextColor(Color.parseColor("#64A6B8"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 13.5f)
-            background = createRoundedBg(BG_DEEP_TEAL, ACCENT_TEAL_DARK, 1, 8)
+            background = createRoundedBg(BG_DEEP_TEAL, ACCENT_TEAL_DARK, 1, 24)
             setPadding(dp(14), dp(9), dp(14), dp(9))
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
                 rightMargin = dp(8)
@@ -404,12 +573,12 @@ class MainActivity : Activity() {
         val submitBtn = Button(this).apply {
             text = "SEARCH"
             isAllCaps = true
-            setTextColor(Color.parseColor(BG_DEEP_TEAL))
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
             typeface = Typeface.DEFAULT_BOLD
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg(ACCENT_TEAL, ACCENT_TEAL, 0, 8)
+            background = createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
             setPadding(dp(14), dp(10), dp(14), dp(10))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
@@ -423,13 +592,13 @@ class MainActivity : Activity() {
         val closeSearchBtn = Button(this).apply {
             text = "CLOSE"
             isAllCaps = true
-            setTextColor(Color.parseColor(TEXT_SECONDARY))
+            setTextColor(Color.parseColor("#8AB8C2"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = Typeface.DEFAULT
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 8)
-            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = createRoundedBg("#1A0B2B38", "#00000000", 0, 24)
+            setPadding(dp(12), dp(10), dp(12), dp(10))
             setOnClickListener {
                 hideKeyboard()
                 bar.visibility = View.GONE
@@ -479,7 +648,7 @@ class MainActivity : Activity() {
                 text = label
                 isAllCaps = true
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = Typeface.DEFAULT
                 letterSpacing = 0.05f
                 minHeight = 0
                 minimumHeight = 0
@@ -490,7 +659,7 @@ class MainActivity : Activity() {
                     ViewGroup.LayoutParams.WRAP_CONTENT,
                     ViewGroup.LayoutParams.WRAP_CONTENT
                 ).apply {
-                    rightMargin = dp(8)
+                    rightMargin = dp(6)
                 }
                 setOnClickListener {
                     currentPage = 1
@@ -516,11 +685,13 @@ class MainActivity : Activity() {
     private fun updateActiveCategoryPill(selectedPath: String) {
         categoryButtons.forEach { (path, btn) ->
             if (path == selectedPath) {
-                btn.setTextColor(Color.parseColor(BG_DEEP_TEAL))
-                btn.background = createRoundedBg(ACCENT_TEAL, ACCENT_TEAL, 0, 16)
-            } else {
                 btn.setTextColor(Color.parseColor(TEXT_PRIMARY))
-                btn.background = createRoundedBg(BG_CARD_TEAL, BORDER_SUBTLE_TEAL, 1, 16)
+                btn.typeface = Typeface.DEFAULT_BOLD
+                btn.background = createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+            } else {
+                btn.setTextColor(Color.parseColor("#8AB8C2"))
+                btn.typeface = Typeface.DEFAULT
+                btn.background = createRoundedBg("#00000000", "#00000000", 0, 24)
             }
         }
     }
@@ -884,13 +1055,7 @@ class MainActivity : Activity() {
 
         executor.execute {
             try {
-                val combined = mutableListOf<MediaItem>()
-                val lkItems = try {
-                    LK21Scraper.fetchCatalog(baseUrl, path, page)
-                } catch (_: Exception) {
-                    emptyList()
-                }
-                combined.addAll(lkItems)
+                val combined = DomainManager.fetchCatalog(this@MainActivity, baseUrl, path, page)
 
                 mainHandler.post {
                     progressBar.visibility = View.GONE
@@ -1446,7 +1611,7 @@ class MainActivity : Activity() {
         }
 
         if (playImmediately && !item.isSeries) {
-            val defaultSrv = "P2P Direct"
+            val defaultSrv = if (item.source == "WATCH32") "Cinezo (No Ads)" else "P2P Direct"
             launchVideoPlayer(
                 pageUrl = item.url,
                 embedUrl = "",
@@ -1463,12 +1628,14 @@ class MainActivity : Activity() {
 
         executor.execute {
             try {
-                val lkDetail = try {
-                    LK21Scraper.fetchDetail(baseUrl, item.url)
-                } catch (_: Exception) {
-                    null
-                } ?: throw IllegalStateException("Server unreachable")
-                val detail = Watch32Scraper.enrichMovieDetail(lkDetail)
+                val dualResult = DomainManager.fetchDualDetails(
+                    context = this@MainActivity,
+                    lk21BaseUrl = baseUrl,
+                    primaryUrl = item.url,
+                    fallbackTitle = item.title,
+                    isSeriesHint = item.isSeries
+                )
+                val detail = dualResult.primaryDetail ?: throw IllegalStateException("Server unreachable")
 
                 mainHandler.post {
                     progressBar.visibility = View.GONE
@@ -1498,13 +1665,13 @@ class MainActivity : Activity() {
                             mirrors = detail.mirrors
                         )
                     } else {
-                        showMobileDetailSheet(detail)
+                        showMobileDetailSheet(dualResult)
                     }
                 }
             } catch (_: Exception) {
                 mainHandler.post {
                     progressBar.visibility = View.GONE
-                    val defaultSrv = "P2P Direct"
+                    val defaultSrv = if (item.source == "WATCH32") "Cinezo (No Ads)" else "P2P Direct"
                     launchVideoPlayer(
                         pageUrl = item.url,
                         embedUrl = "",
@@ -1518,7 +1685,8 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun showMobileDetailSheet(detail: MediaDetail) {
+    private fun showMobileDetailSheet(dualResult: DualDomainMediaResult) {
+        val primaryDetail = dualResult.primaryDetail ?: return
         val dialog = Dialog(this)
         dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
 
@@ -1528,13 +1696,13 @@ class MainActivity : Activity() {
 
         val modalRoot = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            background = createRoundedBg(BG_SURFACE_TEAL, ACCENT_TEAL, 2, 14)
+            background = createRoundedBg(BG_SURFACE_TEAL, ACCENT_TEAL, 2, 18)
             setPadding(dp(18), dp(16), dp(18), dp(16))
             layoutParams = ViewGroup.LayoutParams(modalWidth, ViewGroup.LayoutParams.WRAP_CONTENT)
         }
 
         val titleView = TextView(this).apply {
-            text = detail.title
+            text = primaryDetail.title
             setTextColor(Color.parseColor(TEXT_PRIMARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
@@ -1542,9 +1710,9 @@ class MainActivity : Activity() {
 
         val metaView = TextView(this).apply {
             val parts = listOfNotNull(
-                detail.quality.takeIf { it.isNotBlank() },
-                detail.rating.takeIf { it.isNotBlank() }?.let { "IMDb $it" },
-                detail.source.takeIf { it.isNotBlank() }
+                primaryDetail.quality.takeIf { it.isNotBlank() },
+                primaryDetail.rating.takeIf { it.isNotBlank() }?.let { "IMDb $it" },
+                if (dualResult.lk21Detail != null && dualResult.watch32Detail != null) "1. LK21 & 2. WATCH32" else primaryDetail.source
             )
             text = parts.joinToString("  •  ")
             setTextColor(Color.parseColor(ACCENT_TEAL))
@@ -1554,18 +1722,206 @@ class MainActivity : Activity() {
         }
 
         val plotView = TextView(this).apply {
-            text = detail.plot
+            text = primaryDetail.plot
             setTextColor(Color.parseColor(TEXT_SECONDARY))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
             maxLines = 4
             ellipsize = TextUtils.TruncateAt.END
             setLineSpacing(0f, 1.15f)
-            setPadding(0, 0, 0, dp(12))
+            setPadding(0, 0, 0, dp(10))
         }
 
         modalRoot.addView(titleView)
         modalRoot.addView(metaView)
         modalRoot.addView(plotView)
+
+        var tickLk21 = dualResult.lk21Detail != null && DomainManager.isLk21Enabled(this)
+        var tickW32 = dualResult.watch32Detail != null && DomainManager.isWatch32Enabled(this)
+        if (!tickLk21 && !tickW32) {
+            tickLk21 = dualResult.lk21Detail != null
+            tickW32 = dualResult.watch32Detail != null
+        }
+
+        val domainRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, 0, 0, dp(10))
+        }
+
+        lateinit var lkDomainPill: Button
+        lateinit var w32DomainPill: Button
+        val optionsCol = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+
+        fun rebuildServerOptions() {
+            optionsCol.removeAllViews()
+
+            val activeDetail = when {
+                tickLk21 && dualResult.lk21Detail != null -> dualResult.lk21Detail
+                tickW32 && dualResult.watch32Detail != null -> dualResult.watch32Detail
+                else -> primaryDetail
+            }
+
+            val combinedMirrors = mutableListOf<Pair<MediaDetail, MirrorItem>>()
+            if (tickLk21 && dualResult.lk21Detail != null) {
+                dualResult.lk21Detail.mirrors.forEach { m ->
+                    combinedMirrors.add(dualResult.lk21Detail to m.copy(name = "[1. LK21] ${m.name}"))
+                }
+            }
+            if (tickW32 && dualResult.watch32Detail != null) {
+                dualResult.watch32Detail.mirrors.forEach { m ->
+                    val cleanName = m.name.removePrefix("Watch32 • ").trim()
+                    combinedMirrors.add(dualResult.watch32Detail to m.copy(name = "[2. WATCH32] $cleanName"))
+                }
+            }
+
+            val firstChoice = combinedMirrors.firstOrNull()
+            if (firstChoice != null) {
+                val (firstDet, firstMir) = firstChoice
+                val allMirs = combinedMirrors.map { it.second }
+                val playBtn = createTouchButton("PLAY NOW (${firstMir.name})", isPrimary = true) {
+                    dialog.dismiss()
+                    launchVideoPlayer(
+                        pageUrl = firstDet.url,
+                        embedUrl = firstMir.embedUrl,
+                        title = primaryDetail.title,
+                        serverName = firstMir.name,
+                        posterUrl = primaryDetail.posterUrl,
+                        genre = primaryDetail.genre,
+                        mirrors = allMirs
+                    )
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = dp(10) }
+                }
+                optionsCol.addView(playBtn)
+            } else if (!activeDetail.mainEmbedUrl.isNullOrBlank()) {
+                val playBtn = createTouchButton("PLAY NOW", isPrimary = true) {
+                    dialog.dismiss()
+                    launchVideoPlayer(
+                        pageUrl = activeDetail.url,
+                        embedUrl = activeDetail.mainEmbedUrl,
+                        title = activeDetail.title,
+                        serverName = activeDetail.mirrors.firstOrNull()?.name ?: "P2P Direct",
+                        posterUrl = activeDetail.posterUrl,
+                        genre = activeDetail.genre,
+                        mirrors = activeDetail.mirrors
+                    )
+                }.apply {
+                    layoutParams = LinearLayout.LayoutParams(
+                        ViewGroup.LayoutParams.MATCH_PARENT,
+                        ViewGroup.LayoutParams.WRAP_CONTENT
+                    ).apply { bottomMargin = dp(10) }
+                }
+                optionsCol.addView(playBtn)
+            }
+
+            if (combinedMirrors.isNotEmpty()) {
+                val srvHeader = TextView(this).apply {
+                    text = "SELECT SERVER (${combinedMirrors.size}):"
+                    setTextColor(Color.parseColor(TEXT_MUTED))
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+                    typeface = Typeface.DEFAULT_BOLD
+                    letterSpacing = 0.05f
+                    setPadding(0, dp(4), 0, dp(6))
+                }
+                optionsCol.addView(srvHeader)
+
+                val allMirs = combinedMirrors.map { it.second }
+                combinedMirrors.forEach { (det, mirror) ->
+                    val srvBtn = createTouchButton(mirror.name, isPrimary = false) {
+                        dialog.dismiss()
+                        launchVideoPlayer(
+                            pageUrl = det.url,
+                            embedUrl = mirror.embedUrl,
+                            title = primaryDetail.title,
+                            serverName = mirror.name,
+                            posterUrl = primaryDetail.posterUrl,
+                            genre = primaryDetail.genre,
+                            mirrors = allMirs
+                        )
+                    }.apply {
+                        layoutParams = LinearLayout.LayoutParams(
+                            ViewGroup.LayoutParams.MATCH_PARENT,
+                            ViewGroup.LayoutParams.WRAP_CONTENT
+                        ).apply { bottomMargin = dp(7) }
+                    }
+                    optionsCol.addView(srvBtn)
+                }
+            }
+        }
+
+        fun updateDomainPillStyles() {
+            val lkAvail = dualResult.lk21Detail != null
+            lkDomainPill.text = if (!lkAvail) "1. LK21 (Tiada)" else if (tickLk21) "[✓] 1. LK21" else "[  ] 1. LK21"
+            lkDomainPill.isEnabled = lkAvail
+            lkDomainPill.typeface = if (tickLk21 && lkAvail) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            lkDomainPill.setTextColor(Color.parseColor(if (tickLk21 && lkAvail) TEXT_PRIMARY else "#8AB8C2"))
+            lkDomainPill.background = if (tickLk21 && lkAvail) {
+                createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+
+            val w32Avail = dualResult.watch32Detail != null
+            w32DomainPill.text = if (!w32Avail) "2. WATCH32 (Tiada)" else if (tickW32) "[✓] 2. WATCH32" else "[  ] 2. WATCH32"
+            w32DomainPill.isEnabled = w32Avail
+            w32DomainPill.typeface = if (tickW32 && w32Avail) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            w32DomainPill.setTextColor(Color.parseColor(if (tickW32 && w32Avail) TEXT_PRIMARY else "#8AB8C2"))
+            w32DomainPill.background = if (tickW32 && w32Avail) {
+                createRoundedBg("#2600D4B2", ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+        }
+
+        lkDomainPill = Button(this).apply {
+            isAllCaps = false
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            minHeight = 0
+            minimumHeight = 0
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                rightMargin = dp(6)
+            }
+            setOnClickListener {
+                if (dualResult.lk21Detail == null) return@setOnClickListener
+                if (tickLk21 && (!tickW32 || dualResult.watch32Detail == null)) {
+                    if (dualResult.watch32Detail != null) tickW32 = true else return@setOnClickListener
+                }
+                tickLk21 = !tickLk21
+                updateDomainPillStyles()
+                rebuildServerOptions()
+            }
+        }
+
+        w32DomainPill = Button(this).apply {
+            isAllCaps = false
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            minHeight = 0
+            minimumHeight = 0
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener {
+                if (dualResult.watch32Detail == null) return@setOnClickListener
+                if (tickW32 && (!tickLk21 || dualResult.lk21Detail == null)) {
+                    if (dualResult.lk21Detail != null) tickLk21 = true else return@setOnClickListener
+                }
+                tickW32 = !tickW32
+                updateDomainPillStyles()
+                rebuildServerOptions()
+            }
+        }
+
+        domainRow.addView(lkDomainPill)
+        domainRow.addView(w32DomainPill)
+        modalRoot.addView(domainRow)
+
+        updateDomainPillStyles()
+        rebuildServerOptions()
 
         val listScroll = ScrollView(this).apply {
             layoutParams = LinearLayout.LayoutParams(
@@ -1573,99 +1929,6 @@ class MainActivity : Activity() {
                 maxListHeight
             )
         }
-
-        val optionsCol = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-        }
-
-        if (!detail.mainEmbedUrl.isNullOrBlank()) {
-            val playBtn = createTouchButton("PLAY NOW", isPrimary = true) {
-                dialog.dismiss()
-                launchVideoPlayer(
-                    pageUrl = detail.url,
-                    embedUrl = detail.mainEmbedUrl,
-                    title = detail.title,
-                    serverName = detail.mirrors.firstOrNull()?.name ?: "P2P Direct",
-                    posterUrl = detail.posterUrl,
-                    genre = detail.genre,
-                    mirrors = detail.mirrors
-                )
-            }.apply {
-                layoutParams = LinearLayout.LayoutParams(
-                    ViewGroup.LayoutParams.MATCH_PARENT,
-                    ViewGroup.LayoutParams.WRAP_CONTENT
-                ).apply { bottomMargin = dp(10) }
-            }
-            optionsCol.addView(playBtn)
-        }
-
-        if (detail.episodes.isNotEmpty()) {
-            val epHeader = TextView(this).apply {
-                text = "EPISODES (${detail.episodes.size}):"
-                setTextColor(Color.parseColor(TEXT_MUTED))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-                typeface = Typeface.DEFAULT_BOLD
-                letterSpacing = 0.05f
-                setPadding(0, dp(4), 0, dp(6))
-            }
-            optionsCol.addView(epHeader)
-
-            detail.episodes.forEach { ep ->
-                val epBtn = createTouchButton(ep.label.uppercase(), isPrimary = false) {
-                    dialog.dismiss()
-                    val epSrv = "P2P Direct"
-                    launchVideoPlayer(
-                        pageUrl = ep.url,
-                        embedUrl = "",
-                        title = "${detail.title} • ${ep.label}",
-                        serverName = epSrv,
-                        posterUrl = detail.posterUrl,
-                        genre = detail.genre,
-                        episodeLabel = ep.label
-                    )
-                }.apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { bottomMargin = dp(7) }
-                }
-                optionsCol.addView(epBtn)
-            }
-        }
-
-        if (detail.mirrors.size > 1) {
-            val srvHeader = TextView(this).apply {
-                text = "SELECT SERVER:"
-                setTextColor(Color.parseColor(TEXT_MUTED))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-                typeface = Typeface.DEFAULT_BOLD
-                letterSpacing = 0.05f
-                setPadding(0, dp(8), 0, dp(6))
-            }
-            optionsCol.addView(srvHeader)
-
-            detail.mirrors.forEach { mirror ->
-                val srvBtn = createTouchButton("SERVER: ${mirror.name}", isPrimary = false) {
-                    dialog.dismiss()
-                    launchVideoPlayer(
-                        pageUrl = detail.url,
-                        embedUrl = mirror.embedUrl,
-                        title = detail.title,
-                        serverName = mirror.name,
-                        posterUrl = detail.posterUrl,
-                        genre = detail.genre,
-                        mirrors = detail.mirrors
-                    )
-                }.apply {
-                    layoutParams = LinearLayout.LayoutParams(
-                        ViewGroup.LayoutParams.MATCH_PARENT,
-                        ViewGroup.LayoutParams.WRAP_CONTENT
-                    ).apply { bottomMargin = dp(7) }
-                }
-                optionsCol.addView(srvBtn)
-            }
-        }
-
         listScroll.addView(optionsCol)
         modalRoot.addView(listScroll)
 
@@ -1702,19 +1965,20 @@ class MainActivity : Activity() {
     }
 
     private fun createTouchButton(label: String, isPrimary: Boolean, onClick: () -> Unit): Button {
-        val bg = if (isPrimary) ACCENT_TEAL else BG_CARD_TEAL
-        val border = if (isPrimary) ACCENT_TEAL else BORDER_SUBTLE_TEAL
-        val txtColor = if (isPrimary) BG_DEEP_TEAL else TEXT_PRIMARY
+        val bg = if (isPrimary) "#2600D4B2" else "#140B2B38"
+        val border = if (isPrimary) ACCENT_TEAL else "#00000000"
+        val strokeW = if (isPrimary) 2 else 0
+        val txtColor = if (isPrimary) TEXT_PRIMARY else "#8AB8C2"
         return Button(this).apply {
             text = label
             isAllCaps = true
             setTextColor(Color.parseColor(txtColor))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.DEFAULT_BOLD
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
+            typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             letterSpacing = 0.05f
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg(bg, border, 1, 8)
+            background = createRoundedBg(bg, border, strokeW, 24)
             setPadding(dp(16), dp(10), dp(16), dp(10))
             setOnClickListener { onClick() }
         }

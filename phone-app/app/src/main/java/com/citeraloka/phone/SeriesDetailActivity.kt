@@ -18,6 +18,8 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import com.citeraloka.phone.domains.DomainManager
+import com.citeraloka.phone.domains.DualDomainMediaResult
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -56,6 +58,10 @@ class SeriesDetailActivity : Activity() {
     private var rating = ""
     private var genre = ""
     private var source = "LK21"
+
+    private var lk21SeriesDetail: MediaDetail? = null
+    private var watch32SeriesDetail: MediaDetail? = null
+    private var activeDomainSource = "LK21"
 
     private var allEpisodes = listOf<EpisodeItem>()
     private var selectedSeason = 1
@@ -399,56 +405,38 @@ class SeriesDetailActivity : Activity() {
     private fun fetchFullSeriesData() {
         executor.execute {
             try {
-                val lk = try {
-                    LK21Scraper.fetchDetail(baseUrl, seriesUrl)
-                } catch (_: Exception) {
-                    null
-                } ?: throw IllegalStateException("No episodes found.")
+                val dualResult = DomainManager.fetchDualDetails(
+                    context = this@SeriesDetailActivity,
+                    lk21BaseUrl = baseUrl,
+                    primaryUrl = seriesUrl,
+                    fallbackTitle = seriesTitle,
+                    isSeriesHint = true
+                )
 
-                val rawDetail = Watch32Scraper.enrichSeriesDetail(lk)
+                val lkDetail = dualResult.lk21Detail?.let { Watch32Scraper.enrichSeriesDetail(it) }
+                val w32Detail = dualResult.watch32Detail
+
+                lk21SeriesDetail = lkDetail
+                watch32SeriesDetail = w32Detail
+
+                val rawDetail = when {
+                    source == "WATCH32" && w32Detail != null && w32Detail.episodes.isNotEmpty() -> {
+                        activeDomainSource = "WATCH32"
+                        w32Detail
+                    }
+                    lkDetail != null && lkDetail.episodes.isNotEmpty() -> {
+                        activeDomainSource = "LK21"
+                        lkDetail
+                    }
+                    w32Detail != null && w32Detail.episodes.isNotEmpty() -> {
+                        activeDomainSource = "WATCH32"
+                        w32Detail
+                    }
+                    else -> throw IllegalStateException("No episodes found.")
+                }
 
                 mainHandler.post {
-                    allEpisodes = rawDetail.episodes
-                    seriesTitle = rawDetail.title
-                    if (rawDetail.posterUrl.isNotBlank()) posterUrl = rawDetail.posterUrl
-                    if (rawDetail.backdropUrl.isNotBlank()) backdropUrl = rawDetail.backdropUrl
-                    if (rawDetail.logoUrl.isNotBlank()) logoUrl = rawDetail.logoUrl
-                    if (rawDetail.plot.isNotBlank()) plot = rawDetail.plot
-                    if (rawDetail.rating.isNotBlank()) rating = rawDetail.rating
-                    if (rawDetail.genre.isNotBlank()) genre = rawDetail.genre
-                    source = rawDetail.source
-
-                    loadingRow.visibility = View.GONE
-
-                    heroTitleView.text = seriesTitle.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { seriesTitle }
-                    heroPlotView.text = plot
-
-                    val seasons = allEpisodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().sorted()
-                    val metaParts = listOfNotNull(
-                        genre.replace(",", " •").takeIf { it.isNotBlank() },
-                        if (seasons.isNotEmpty()) "${seasons.size} ${if (seasons.size == 1) "Season" else "Seasons"}" else null,
-                        if (allEpisodes.isNotEmpty()) "${allEpisodes.size} ${if (allEpisodes.size == 1) "Episode" else "Episodes"}" else null
-                    )
-                    heroMetaView.text = metaParts.joinToString("  •  ")
-                    renderHeroBadges(seasons.size, allEpisodes.size)
-
-                    val bgToLoad = backdropUrl.ifBlank { posterUrl }
-                    if (bgToLoad.isNotBlank()) {
-                        loadImageAsync(bgToLoad, heroBackdropView, crossfade = true)
-                    }
-                    if (logoUrl.isNotBlank()) {
-                        loadImageAsync(logoUrl, heroLogoView) { ok ->
-                            if (ok) {
-                                heroLogoView.visibility = View.VISIBLE
-                                heroTitleView.visibility = View.GONE
-                            }
-                        }
-                    }
-
-                    rebuildHeroActions()
-                    buildSeasonSelector(seasons)
-                    selectedSeason = seasons.firstOrNull() ?: 1
-                    renderSeasonEpisodes(selectedSeason)
+                    applyActiveSeriesDetail(rawDetail)
                 }
             } catch (e: Exception) {
                 mainHandler.post {
@@ -458,9 +446,124 @@ class SeriesDetailActivity : Activity() {
         }
     }
 
+    private fun applyActiveSeriesDetail(rawDetail: MediaDetail) {
+        allEpisodes = rawDetail.episodes
+        seriesTitle = rawDetail.title
+        if (rawDetail.posterUrl.isNotBlank()) posterUrl = rawDetail.posterUrl
+        if (rawDetail.backdropUrl.isNotBlank()) backdropUrl = rawDetail.backdropUrl
+        if (rawDetail.logoUrl.isNotBlank()) logoUrl = rawDetail.logoUrl
+        if (rawDetail.plot.isNotBlank()) plot = rawDetail.plot
+        if (rawDetail.rating.isNotBlank()) rating = rawDetail.rating
+        if (rawDetail.genre.isNotBlank()) genre = rawDetail.genre
+        source = rawDetail.source
+
+        loadingRow.visibility = View.GONE
+
+        heroTitleView.text = seriesTitle.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { seriesTitle }
+        heroPlotView.text = plot
+
+        val seasons = allEpisodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().sorted()
+        val metaParts = listOfNotNull(
+            genre.replace(",", " •").takeIf { it.isNotBlank() },
+            if (seasons.isNotEmpty()) "${seasons.size} ${if (seasons.size == 1) "Season" else "Seasons"}" else null,
+            if (allEpisodes.isNotEmpty()) "${allEpisodes.size} ${if (allEpisodes.size == 1) "Episode" else "Episodes"}" else null
+        )
+        heroMetaView.text = metaParts.joinToString("  •  ")
+        renderHeroBadges(seasons.size, allEpisodes.size)
+
+        val bgToLoad = backdropUrl.ifBlank { posterUrl }
+        if (bgToLoad.isNotBlank()) {
+            loadImageAsync(bgToLoad, heroBackdropView, crossfade = true)
+        }
+        if (logoUrl.isNotBlank()) {
+            loadImageAsync(logoUrl, heroLogoView) { ok ->
+                if (ok) {
+                    heroLogoView.visibility = View.VISIBLE
+                    heroTitleView.visibility = View.GONE
+                }
+            }
+        }
+
+        rebuildHeroActions()
+        buildSeasonSelector(seasons)
+        selectedSeason = seasons.firstOrNull() ?: 1
+        renderSeasonEpisodes(selectedSeason)
+    }
+
     private fun rebuildHeroActions() {
         heroActionCol.removeAllViews()
         if (allEpisodes.isEmpty()) return
+
+        // Domain Selector Row (1. LK21 / 2. WATCH32)
+        val domainRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+
+        val lkAvail = lk21SeriesDetail != null && lk21SeriesDetail!!.episodes.isNotEmpty()
+        val w32Avail = watch32SeriesDetail != null && watch32SeriesDetail!!.episodes.isNotEmpty()
+
+        val lkPill = Button(this).apply {
+            val isSel = activeDomainSource == "LK21" && lkAvail
+            text = if (!lkAvail) "1. LK21 (Tiada)" else if (isSel) "[✓] 1. LK21" else "[  ] 1. LK21"
+            isAllCaps = false
+            isEnabled = lkAvail
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = if (isSel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            setTextColor(Color.parseColor(if (isSel) MainActivity.TEXT_PRIMARY else "#8AB8C2"))
+            minHeight = 0
+            minimumHeight = 0
+            background = if (isSel) {
+                createRoundedBg("#2600D4B2", MainActivity.ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply {
+                rightMargin = dp(6)
+            }
+            setOnClickListener {
+                val det = lk21SeriesDetail ?: return@setOnClickListener
+                if (activeDomainSource != "LK21") {
+                    activeDomainSource = "LK21"
+                    applyActiveSeriesDetail(det)
+                }
+            }
+        }
+
+        val w32Pill = Button(this).apply {
+            val isSel = activeDomainSource == "WATCH32" && w32Avail
+            text = if (!w32Avail) "2. WATCH32 (Tiada)" else if (isSel) "[✓] 2. WATCH32" else "[  ] 2. WATCH32"
+            isAllCaps = false
+            isEnabled = w32Avail
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = if (isSel) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            setTextColor(Color.parseColor(if (isSel) MainActivity.TEXT_PRIMARY else "#8AB8C2"))
+            minHeight = 0
+            minimumHeight = 0
+            background = if (isSel) {
+                createRoundedBg("#2600D4B2", MainActivity.ACCENT_TEAL, 2, 24)
+            } else {
+                createRoundedBg("#140B2B38", "#00000000", 0, 24)
+            }
+            setPadding(dp(12), dp(7), dp(12), dp(7))
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            setOnClickListener {
+                val det = watch32SeriesDetail ?: return@setOnClickListener
+                if (activeDomainSource != "WATCH32") {
+                    activeDomainSource = "WATCH32"
+                    applyActiveSeriesDetail(det)
+                }
+            }
+        }
+
+        domainRow.addView(lkPill)
+        domainRow.addView(w32Pill)
+        heroActionCol.addView(domainRow)
 
         val firstEp = allEpisodes.first()
         val cleanSeriesPrefix = seriesTitle.substringBefore(" • ").trim()
@@ -479,13 +582,13 @@ class SeriesDetailActivity : Activity() {
             val resumeBtn = Button(this).apply {
                 text = resumeLabel
                 isAllCaps = true
-                setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+                setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 typeface = Typeface.DEFAULT_BOLD
                 letterSpacing = 0.06f
                 minHeight = 0
                 minimumHeight = 0
-                background = createRoundedBg(MainActivity.ACCENT_TEAL, MainActivity.ACCENT_TEAL, 0, 8)
+                background = createRoundedBg("#2600D4B2", MainActivity.ACCENT_TEAL, 2, 24)
                 setPadding(dp(14), dp(11), dp(14), dp(11))
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -506,13 +609,13 @@ class SeriesDetailActivity : Activity() {
             val playBtn = Button(this).apply {
                 text = "PLAY S${firstEp.seasonNumber}:E${firstEp.episodeNumber} NOW"
                 isAllCaps = true
-                setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+                setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
+                setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
                 typeface = Typeface.DEFAULT_BOLD
                 letterSpacing = 0.06f
                 minHeight = 0
                 minimumHeight = 0
-                background = createRoundedBg(MainActivity.ACCENT_TEAL, MainActivity.ACCENT_TEAL, 0, 8)
+                background = createRoundedBg("#2600D4B2", MainActivity.ACCENT_TEAL, 2, 24)
                 setPadding(dp(14), dp(11), dp(14), dp(11))
                 layoutParams = LinearLayout.LayoutParams(
                     ViewGroup.LayoutParams.MATCH_PARENT,
@@ -539,7 +642,7 @@ class SeriesDetailActivity : Activity() {
                 text = "SEASON $sNum"
                 isAllCaps = true
                 setTextSize(TypedValue.COMPLEX_UNIT_SP, 11.5f)
-                typeface = Typeface.DEFAULT_BOLD
+                typeface = Typeface.DEFAULT
                 letterSpacing = 0.05f
                 minHeight = 0
                 minimumHeight = 0
@@ -567,11 +670,13 @@ class SeriesDetailActivity : Activity() {
     private fun refreshSeasonPills() {
         seasonTabButtons.forEach { (sNum, btn) ->
             if (sNum == selectedSeason) {
-                btn.setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                btn.background = createRoundedBg(MainActivity.ACCENT_TEAL, MainActivity.ACCENT_TEAL, 0, 16)
-            } else {
                 btn.setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-                btn.background = createRoundedBg(MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL, 1, 16)
+                btn.typeface = Typeface.DEFAULT_BOLD
+                btn.background = createRoundedBg("#2600D4B2", MainActivity.ACCENT_TEAL, 2, 24)
+            } else {
+                btn.setTextColor(Color.parseColor("#8AB8C2"))
+                btn.typeface = Typeface.DEFAULT
+                btn.background = createRoundedBg("#00000000", "#00000000", 0, 24)
             }
         }
     }
@@ -736,11 +841,12 @@ class SeriesDetailActivity : Activity() {
     }
 
     private fun playEpisode(ep: EpisodeItem) {
+        val defaultServer = if (Watch32Scraper.isWatch32Url(ep.url)) "Cinezo (No Ads)" else "P2P Direct"
         launchPlayer(
             epUrl = ep.url,
             epLabel = ep.label,
             embedUrl = "",
-            serverName = "P2P Direct"
+            serverName = defaultServer
         )
     }
 

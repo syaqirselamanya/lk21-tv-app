@@ -38,6 +38,9 @@ object AdBlocker {
         "donasi.assetsy.de",
         "yellowishgather.com",
         "social.santai.lol",
+        "fentpsyllid.com",
+        "hiibel.com",
+        "cineflix.st",
         "adsby",
         "adserver",
         "adsystem",
@@ -99,7 +102,14 @@ object AdBlocker {
         "vidsrc.sh",
         "vidsrc.cc",
         "111movies.com",
-        "vidzee.wtf"
+        "vidzee.wtf",
+        "watch32.site",
+        "arrowtv.net",
+        "punkflix.net",
+        "flikhub.net",
+        "autoembed.cc",
+        "vidfast.vc",
+        "moviesapi.to"
     )
 
     // Dalam mod pemain video, sekat sebarang cubaan redirect ke laman iklan atau laman utama lk21.de

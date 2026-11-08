@@ -18,6 +18,9 @@ import android.view.Gravity
 import android.view.View
 import android.view.ViewGroup
 import android.widget.*
+import com.lk21tv.app.domains.DomainManager
+import com.lk21tv.app.domains.lk21.Lk21Domain
+import com.lk21tv.app.domains.watch32.Watch32Domain
 import java.net.HttpURLConnection
 import java.net.URL
 import java.util.concurrent.Executors
@@ -58,6 +61,8 @@ class SeriesDetailActivity : Activity() {
     private var source = "LK21"
 
     private var loadedDetail: MediaDetail? = null
+    private var lk21SeriesDetail: MediaDetail? = null
+    private var watch32SeriesDetail: MediaDetail? = null
     private var allEpisodes = listOf<EpisodeItem>()
     private var selectedSeason = 1
     private val seasonTabButtons = mutableListOf<Pair<Int, Button>>()
@@ -405,58 +410,22 @@ class SeriesDetailActivity : Activity() {
     private fun fetchFullSeriesData() {
         executor.execute {
             try {
-                val lk = try {
-                    LK21Scraper.fetchDetail(baseUrl, seriesUrl)
-                } catch (_: Exception) {
-                    null
-                } ?: throw IllegalStateException("No episodes found.")
+                val dual = DomainManager.fetchDualDetails(
+                    executor = executor,
+                    baseUrl = baseUrl,
+                    pageUrl = seriesUrl,
+                    title = seriesTitle,
+                    isSeries = true
+                )
+                lk21SeriesDetail = dual.lk21Detail
+                watch32SeriesDetail = dual.watch32Detail
 
-                val rawDetail = Watch32Scraper.enrichSeriesDetail(lk)
+                val initialDetail = dual.primaryDetail()
+                    ?: throw IllegalStateException("No episodes found.")
 
                 mainHandler.post {
-                    loadedDetail = rawDetail
-                    allEpisodes = rawDetail.episodes
-                    seriesTitle = rawDetail.title
-                    if (rawDetail.posterUrl.isNotBlank()) posterUrl = rawDetail.posterUrl
-                    if (rawDetail.backdropUrl.isNotBlank()) backdropUrl = rawDetail.backdropUrl
-                    if (rawDetail.logoUrl.isNotBlank()) logoUrl = rawDetail.logoUrl
-                    if (rawDetail.plot.isNotBlank()) plot = rawDetail.plot
-                    if (rawDetail.rating.isNotBlank()) rating = rawDetail.rating
-                    if (rawDetail.genre.isNotBlank()) genre = rawDetail.genre
-                    source = rawDetail.source
-
                     loadingRow.visibility = View.GONE
-
-                    val cleanHeroTitle = seriesTitle.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { seriesTitle }
-                    heroTitleView.text = cleanHeroTitle
-                    heroPlotView.text = plot
-
-                    val seasons = allEpisodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().sorted()
-                    val metaParts = listOfNotNull(
-                        genre.replace(",", " •").takeIf { it.isNotBlank() },
-                        if (seasons.isNotEmpty()) "${seasons.size} ${if (seasons.size == 1) "Season" else "Seasons"}" else null,
-                        if (allEpisodes.isNotEmpty()) "${allEpisodes.size} ${if (allEpisodes.size == 1) "Episode" else "Episodes"}" else null
-                    )
-                    heroMetaView.text = metaParts.joinToString("  •  ")
-                    renderHeroBadges(seasons.size, allEpisodes.size)
-
-                    val bgToLoad = backdropUrl.ifBlank { posterUrl }
-                    if (bgToLoad.isNotBlank()) {
-                        loadImageAsync(bgToLoad, heroBackdropView, crossfade = true)
-                    }
-                    if (logoUrl.isNotBlank()) {
-                        loadImageAsync(logoUrl, heroLogoView) { ok ->
-                            if (ok) {
-                                heroLogoView.visibility = View.VISIBLE
-                                heroTitleView.visibility = View.GONE
-                            }
-                        }
-                    }
-
-                    rebuildHeroActions()
-                    buildSeasonSelector(seasons)
-                    selectedSeason = seasons.firstOrNull() ?: 1
-                    renderSeasonEpisodes(selectedSeason)
+                    applyActiveSeriesDomain(initialDetail)
                 }
             } catch (e: Exception) {
                 mainHandler.post {
@@ -464,6 +433,52 @@ class SeriesDetailActivity : Activity() {
                 }
             }
         }
+    }
+
+    private fun applyActiveSeriesDomain(rawDetail: MediaDetail) {
+        loadedDetail = rawDetail
+        allEpisodes = rawDetail.episodes
+        seriesTitle = rawDetail.title
+        if (rawDetail.posterUrl.isNotBlank()) posterUrl = rawDetail.posterUrl
+        if (rawDetail.backdropUrl.isNotBlank()) backdropUrl = rawDetail.backdropUrl
+        if (rawDetail.logoUrl.isNotBlank()) logoUrl = rawDetail.logoUrl
+        if (rawDetail.plot.isNotBlank()) plot = rawDetail.plot
+        if (rawDetail.rating.isNotBlank()) rating = rawDetail.rating
+        if (rawDetail.genre.isNotBlank()) genre = rawDetail.genre
+        source = rawDetail.source
+
+        val cleanHeroTitle = seriesTitle.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { seriesTitle }
+        heroTitleView.text = cleanHeroTitle
+        heroPlotView.text = plot
+
+        val seasons = allEpisodes.map { it.seasonNumber.coerceAtLeast(1) }.distinct().sorted()
+        val metaParts = listOfNotNull(
+            genre.replace(",", " •").takeIf { it.isNotBlank() },
+            if (seasons.isNotEmpty()) "${seasons.size} ${if (seasons.size == 1) "Season" else "Seasons"}" else null,
+            if (allEpisodes.isNotEmpty()) "${allEpisodes.size} ${if (allEpisodes.size == 1) "Episode" else "Episodes"}" else null
+        )
+        heroMetaView.text = metaParts.joinToString("  •  ")
+        renderHeroBadges(seasons.size, allEpisodes.size)
+
+        val bgToLoad = backdropUrl.ifBlank { posterUrl }
+        if (bgToLoad.isNotBlank()) {
+            loadImageAsync(bgToLoad, heroBackdropView, crossfade = true)
+        }
+        if (logoUrl.isNotBlank()) {
+            loadImageAsync(logoUrl, heroLogoView) { ok ->
+                if (ok) {
+                    heroLogoView.visibility = View.VISIBLE
+                    heroTitleView.visibility = View.GONE
+                }
+            }
+        }
+
+        rebuildHeroActions()
+        buildSeasonSelector(seasons)
+        if (selectedSeason !in seasons) {
+            selectedSeason = seasons.firstOrNull() ?: 1
+        }
+        renderSeasonEpisodes(selectedSeason)
     }
 
     private fun rebuildHeroActions() {
@@ -506,6 +521,38 @@ class SeriesDetailActivity : Activity() {
             heroActionRow.addView(playEp1Btn)
             playEp1Btn.requestFocus()
         }
+
+        // Butang Tick Pilihan Domain (1. LK21 / 2. WATCH32) terus di dalam halaman Siri TV
+        val isLkActive = source != Watch32Domain.ID
+        val lkAvailable = lk21SeriesDetail != null
+        val w32Available = watch32SeriesDetail != null
+
+        val lkDomainBtn = createTvActionButton(
+            label = if (lkAvailable) "${if (isLkActive) "[✓]" else "[  ]"} 1. LK21" else "[ - ] 1. LK21",
+            isPrimary = isLkActive
+        ) {
+            val lk = lk21SeriesDetail
+            if (lk != null) {
+                applyActiveSeriesDomain(lk)
+            } else {
+                Toast.makeText(this, "Series not available on LK21", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        val w32DomainBtn = createTvActionButton(
+            label = if (w32Available) "${if (!isLkActive) "[✓]" else "[  ]"} 2. WATCH32" else "[ - ] 2. WATCH32",
+            isPrimary = !isLkActive
+        ) {
+            val w32 = watch32SeriesDetail
+            if (w32 != null) {
+                applyActiveSeriesDomain(w32)
+            } else {
+                Toast.makeText(this, "Series not available on Watch32", Toast.LENGTH_SHORT).show()
+            }
+        }
+
+        heroActionRow.addView(lkDomainBtn)
+        heroActionRow.addView(w32DomainBtn)
     }
 
     private fun buildSeasonSelector(seasons: List<Int>) {
@@ -558,20 +605,23 @@ class SeriesDetailActivity : Activity() {
     private fun updateSeasonTabAppearance(btn: Button, isSelected: Boolean, hasFocus: Boolean) {
         when {
             hasFocus -> {
-                btn.setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                btn.background = createRoundedBg(MainActivity.ACCENT_TEAL, "#FFFFFF", 2, 6)
+                btn.setTextColor(Color.parseColor("#FFFFFF"))
+                btn.typeface = Typeface.DEFAULT_BOLD
+                btn.background = createRoundedBg("#3300D4B2", MainActivity.ACCENT_TEAL, 2, 24)
                 btn.scaleX = 1.05f
                 btn.scaleY = 1.05f
             }
             isSelected -> {
-                btn.setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                btn.background = createRoundedBg(MainActivity.ACCENT_TEAL, MainActivity.ACCENT_TEAL, 1, 6)
+                btn.setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
+                btn.typeface = Typeface.DEFAULT_BOLD
+                btn.background = createRoundedBg("#1800D4B2", MainActivity.ACCENT_TEAL, 1, 24)
                 btn.scaleX = 1.0f
                 btn.scaleY = 1.0f
             }
             else -> {
-                btn.setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-                btn.background = createRoundedBg(MainActivity.BG_CARD_TEAL, MainActivity.BORDER_SUBTLE_TEAL, 1, 6)
+                btn.setTextColor(Color.parseColor("#8AB8C2"))
+                btn.typeface = Typeface.DEFAULT
+                btn.background = createRoundedBg("#00000000", "#00000000", 0, 24)
                 btn.scaleX = 1.0f
                 btn.scaleY = 1.0f
             }
@@ -760,12 +810,30 @@ class SeriesDetailActivity : Activity() {
     }
 
     private fun playEpisode(ep: EpisodeItem) {
-        launchPlayer(
-            epUrl = ep.url,
-            epLabel = ep.label,
-            embedUrl = "",
-            serverName = "P2P Direct"
-        )
+        if (Watch32Domain.isWatch32Uri(ep.url)) {
+            val tmdbId = Regex("""(?:tv|movie)/(\d+)""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                ?: Regex("""\b(\d{3,8})\b""").find(ep.url)?.groupValues?.getOrNull(1)?.toIntOrNull()
+                ?: 0
+            val mirrors = if (tmdbId > 0) {
+                Watch32Domain.buildEpisodeMirrors(tmdbId, season = ep.seasonNumber, episode = ep.episodeNumber)
+            } else {
+                emptyList()
+            }
+            launchPlayer(
+                epUrl = ep.url,
+                epLabel = ep.label,
+                embedUrl = mirrors.firstOrNull()?.embedUrl ?: "",
+                serverName = mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)",
+                mirrors = mirrors
+            )
+        } else {
+            launchPlayer(
+                epUrl = ep.url,
+                epLabel = ep.label,
+                embedUrl = "",
+                serverName = "P2P Direct"
+            )
+        }
     }
 
     private fun launchPlayer(
@@ -803,21 +871,22 @@ class SeriesDetailActivity : Activity() {
     }
 
     private fun createTvActionButton(label: String, isPrimary: Boolean, onClick: () -> Unit): Button {
-        val normalBg = if (isPrimary) MainActivity.ACCENT_TEAL_DARK else "#D9071F29"
-        val normalBorder = if (isPrimary) MainActivity.ACCENT_TEAL else MainActivity.BORDER_SUBTLE_TEAL
+        val normalBg = if (isPrimary) "#1F00D4B2" else "#22071F29"
+        val normalBorder = if (isPrimary) MainActivity.ACCENT_TEAL else "#00000000"
+        val normalStroke = if (isPrimary) 1 else 0
         return Button(this).apply {
             text = label
             isAllCaps = true
-            setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
-            typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.06f
+            setTextColor(Color.parseColor(if (isPrimary) MainActivity.TEXT_PRIMARY else "#8AB8C2"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            letterSpacing = 0.05f
             isFocusable = true
             isFocusableInTouchMode = false
             minHeight = 0
             minimumHeight = 0
-            background = createRoundedBg(normalBg, normalBorder, 1, 6)
-            setPadding(dp(18), dp(9), dp(18), dp(9))
+            background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
+            setPadding(dp(18), dp(8), dp(18), dp(8))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -825,16 +894,19 @@ class SeriesDetailActivity : Activity() {
                 rightMargin = dp(10)
             }
             setOnFocusChangeListener { v, hasFocus ->
+                val btn = v as Button
                 if (hasFocus) {
-                    (v as Button).setTextColor(Color.parseColor(MainActivity.BG_DEEP_TEAL))
-                    v.background = createRoundedBg(MainActivity.ACCENT_TEAL, "#FFFFFF", 2, 6)
-                    v.scaleX = 1.05f
-                    v.scaleY = 1.05f
+                    btn.setTextColor(Color.parseColor("#FFFFFF"))
+                    btn.typeface = Typeface.DEFAULT_BOLD
+                    btn.background = createRoundedBg("#3300D4B2", MainActivity.ACCENT_TEAL, 2, 24)
+                    btn.scaleX = 1.04f
+                    btn.scaleY = 1.04f
                 } else {
-                    (v as Button).setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
-                    v.background = createRoundedBg(normalBg, normalBorder, 1, 6)
-                    v.scaleX = 1.0f
-                    v.scaleY = 1.0f
+                    btn.setTextColor(Color.parseColor(if (isPrimary) MainActivity.TEXT_PRIMARY else "#8AB8C2"))
+                    btn.typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                    btn.background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
+                    btn.scaleX = 1.0f
+                    btn.scaleY = 1.0f
                 }
             }
             setOnClickListener { onClick() }

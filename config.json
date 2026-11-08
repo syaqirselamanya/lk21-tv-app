@@ -1,7 +1,7 @@
 {
-  "versionCode": 15,
-  "versionName": "4.0.3",
+  "versionCode": 16,
+  "versionName": "4.0.4",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.3.apk",
-  "changelog": "Pure LK21 Engine: Removed watch32.site domain and unstable web embed servers to prevent movie crashing. High stability, fast direct HLS streams, and zero-ad playback."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.4.apk",
+  "changelog": "v4.0.4: Dual-Domain Selector (1. LK21 & 2. Watch32 tick button di Top Bar + dalam Movie/Series Detail), Modular Domain Architecture (domains/lk21 & domains/watch32), Watch32 Official Cinezo Ad-Free Engine, dan UI Bujur Minimalist (Search pinned di kiri atas, outline & bold bila select sahaja)."
 }

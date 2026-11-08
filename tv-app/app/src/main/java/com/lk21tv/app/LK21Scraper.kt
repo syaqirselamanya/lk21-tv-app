@@ -485,6 +485,20 @@ object LK21Scraper {
      * supaya tidak dihalakan (redirect) ke laman web lk21.de!
      */
     fun resolveStream(embedUrl: String, serverName: String = "P2P"): ResolvedStream {
+        if (Watch32Scraper.isWatch32EmbedUrl(embedUrl)) {
+            val ref = if (embedUrl.contains("cinezo.live", ignoreCase = true)) {
+                "https://arrowtv.net/"
+            } else {
+                "https://watch32.site/"
+            }
+            return ResolvedStream(
+                streamUrl = embedUrl,
+                isDirectHls = false,
+                referer = ref,
+                serverName = serverName,
+                isDirectWebEmbed = false
+            )
+        }
         try {
             val cleanUrl = embedUrl.substringBefore("?")
             // Contoh: https://videonode.de/iframe3/p2p/vl4biPHM2Q871_aFIsMpeA

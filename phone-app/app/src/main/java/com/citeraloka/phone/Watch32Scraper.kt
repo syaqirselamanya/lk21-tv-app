@@ -68,10 +68,14 @@ object Watch32Scraper {
     )
 
     private val WATCH32_EMBED_HOSTS = listOf(
+        "cinezo.live",
+        "peestream.in",
         "vidlink.pro",
-        "cinesrc.st",
         "videasy.to",
         "videasy.net",
+        "multiembed.mov",
+        "autoembed.cc",
+        "vidfast.vc",
         "2embed.cc",
         "vidsrc.to",
         "vidsrc.su",
@@ -79,17 +83,19 @@ object Watch32Scraper {
         "vidsrc.sh",
         "vidsrc.me",
         "vixsrc.to",
-        "peestream.in",
-        "cinezo.live",
+        "cinesrc.st",
         "vidspark.to",
         "moviesapi.to",
-        "vidzee.wtf",
-        "multiembed.mov"
+        "vidzee.wtf"
     )
 
-    fun isWatch32Uri(url: String): Boolean = false
+    fun isWatch32Uri(url: String): Boolean =
+        url.startsWith("watch32://") || url.contains("watch32.site")
 
-    fun isWatch32EmbedUrl(url: String): Boolean = false
+    fun isWatch32EmbedUrl(url: String): Boolean {
+        val lower = url.lowercase(Locale.ROOT)
+        return WATCH32_EMBED_HOSTS.any { lower.contains(it) }
+    }
 
     private fun fetchJson(url: String): JSONObject? {
         return try {
@@ -260,30 +266,28 @@ object Watch32Scraper {
     ): List<MirrorItem> {
         val list = mutableListOf<MirrorItem>()
         if (isSeries) {
-            list.add(MirrorItem("W32 • CineSrc (No Ads)", "https://cinesrc.st/embed/tv/$tmdbId?s=$season&e=$episode"))
+            list.add(MirrorItem("W32 • Cinezo (No Ads)", "https://player.cinezo.live/embed/tv/$tmdbId/$season/$episode"))
+            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=show&season=$season&episode=$episode"))
             list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/tv/$tmdbId/$season/$episode?autoplay=true&primaryColor=00D4B2"))
             list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/tv/$tmdbId/$season/$episode?color=00D4B2"))
             list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1&s=$season&e=$episode"))
+            list.add(MirrorItem("W32 • AutoEmbed HD", "https://player.autoembed.cc/embed/tv/$tmdbId/$season/$episode"))
+            list.add(MirrorItem("W32 • VidFast HD", "https://vidfast.vc/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embedtv/$tmdbId&s=$season&e=$episode"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/tv/$tmdbId/$season/$episode"))
-            list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/tv/$tmdbId/$season/$episode"))
-            list.add(MirrorItem("W32 • VixSrc", "https://vixsrc.to/tv/$tmdbId/$season/$episode"))
-            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://providers.peestream.in/embed/?tmdbId=$tmdbId&type=tv&season=$season&episode=$episode"))
-            list.add(MirrorItem("W32 • Cinezo (Backup)", "https://player.cinezo.live/embed/tv/$tmdbId/$season/$episode"))
             if (imdbId.isNotBlank()) {
                 list.add(MirrorItem("W32 • VidSrc Embed", "https://vidsrc.sh/embed/tv/$imdbId/$season/$episode"))
             }
         } else {
-            list.add(MirrorItem("W32 • CineSrc (No Ads)", "https://cinesrc.st/embed/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • Cinezo (No Ads)", "https://player.cinezo.live/embed/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=movie"))
             list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/movie/$tmdbId?autoplay=true&primaryColor=00D4B2"))
             list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/movie/$tmdbId?color=00D4B2"))
             list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1"))
+            list.add(MirrorItem("W32 • AutoEmbed HD", "https://player.autoembed.cc/embed/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • VidFast HD", "https://vidfast.vc/movie/$tmdbId"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embed/$tmdbId"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/movie/$tmdbId"))
-            list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/movie/$tmdbId"))
-            list.add(MirrorItem("W32 • VixSrc", "https://vixsrc.to/movie/$tmdbId"))
-            list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://providers.peestream.in/embed/?tmdbId=$tmdbId&type=movie"))
-            list.add(MirrorItem("W32 • Cinezo (Backup)", "https://player.cinezo.live/embed/movie/$tmdbId"))
             if (imdbId.isNotBlank()) {
                 list.add(MirrorItem("W32 • VidSrc Embed", "https://vidsrc.sh/embed/movie/$imdbId"))
             }
@@ -446,7 +450,32 @@ object Watch32Scraper {
      * Auto-Fallback: Cari padanan cerita di Watch32 apabila pelayan LK21 disekat / gagal / tiada strim
      */
     fun findFallbackDetail(rawTitle: String, episodeLabel: String = "", preferSeries: Boolean = false): MediaDetail? {
-        return null
+        val (cleanTitle, yearHint) = extractCleanTitleAndYear(rawTitle)
+        if (cleanTitle.isBlank()) return null
+
+        val match = searchBestTmdbMatch(cleanTitle, yearHint, preferSeries || episodeLabel.isNotBlank())
+            ?: return null
+
+        val (tmdbId, isTv) = match
+        return if (isTv) {
+            val (sNum, eNum) = parseSeasonEpisode(episodeLabel)
+            val uri = if (episodeLabel.isNotBlank()) {
+                "watch32://tv/$tmdbId/$sNum/$eNum"
+            } else {
+                "watch32://tv/$tmdbId"
+            }
+            try {
+                fetchDetail(uri)
+            } catch (_: Exception) {
+                null
+            }
+        } else {
+            try {
+                fetchDetail("watch32://movie/$tmdbId")
+            } catch (_: Exception) {
+                null
+            }
+        }
     }
 
     fun findBackupMirrorsForLk21(
@@ -454,7 +483,13 @@ object Watch32Scraper {
         episodeLabel: String = "",
         isSeries: Boolean = false
     ): List<MirrorItem> {
-        return emptyList()
+        val (cleanTitle, yearHint) = extractCleanTitleAndYear(rawTitle)
+        if (cleanTitle.isBlank()) return emptyList()
+        val match = searchBestTmdbMatch(cleanTitle, yearHint, isSeries || episodeLabel.isNotBlank())
+            ?: return emptyList()
+        val (tmdbId, isTv) = match
+        val (sNum, eNum) = parseSeasonEpisode(episodeLabel)
+        return buildMirrors(tmdbId, isTv, sNum, eNum).take(5)
     }
 
     /**

@@ -1,6 +1,7 @@
 package com.lk21tv.app
 
 import android.annotation.SuppressLint
+import android.annotation.TargetApi
 import android.app.Activity
 import android.app.AlertDialog
 import android.content.Context
@@ -8,6 +9,7 @@ import android.graphics.Color
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.AudioManager
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -19,6 +21,9 @@ import android.view.View
 import android.view.ViewGroup
 import android.webkit.*
 import android.widget.*
+import com.lk21tv.app.domains.DomainManager
+import com.lk21tv.app.domains.lk21.Lk21Domain
+import com.lk21tv.app.domains.watch32.Watch32Domain
 import java.util.concurrent.Executors
 
 class PlayerActivity : Activity() {
@@ -26,6 +31,7 @@ class PlayerActivity : Activity() {
     private val executor = Executors.newSingleThreadExecutor()
     private val mainHandler = Handler(Looper.getMainLooper())
 
+    private lateinit var rootLayout: FrameLayout
     private lateinit var webView: WebView
     private lateinit var osdContainer: FrameLayout
     private lateinit var loadingOverlay: LinearLayout
@@ -130,7 +136,7 @@ class PlayerActivity : Activity() {
             episodes.add(EpisodeItem(label = epLabels[i], url = epUrls[i]))
         }
 
-        val root = FrameLayout(this).apply {
+        rootLayout = FrameLayout(this).apply {
             setBackgroundColor(Color.BLACK)
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -139,16 +145,8 @@ class PlayerActivity : Activity() {
         }
 
         // 1. Enjin Video WebView Skrin Penuh
-        webView = WebView(this).apply {
-            setBackgroundColor(Color.BLACK)
-            isFocusable = false
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            )
-        }
-        configureWebView()
-        root.addView(webView)
+        webView = createFreshWebView()
+        rootLayout.addView(webView)
 
         // 2. Lapisan Loading Minimalis Dark Teal
         loadingOverlay = LinearLayout(this).apply {
@@ -174,7 +172,7 @@ class PlayerActivity : Activity() {
         }
         loadingOverlay.addView(spinner)
         loadingOverlay.addView(loadingStatusText)
-        root.addView(loadingOverlay)
+        rootLayout.addView(loadingOverlay)
 
         // 3. Toast Penunjuk Tengah (Sleek Minimal Text)
         centerToastView = TextView(this).apply {
@@ -183,7 +181,7 @@ class PlayerActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 18f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.06f
-            background = createRoundedBg("#E6071F29", "#00D4B2", 2, 8)
+            background = createRoundedBg("#E6071F29", "#00D4B2", 2, 24)
             setPadding(dp(22), dp(12), dp(22), dp(12))
             visibility = View.GONE
             layoutParams = FrameLayout.LayoutParams(
@@ -192,22 +190,35 @@ class PlayerActivity : Activity() {
                 Gravity.CENTER
             )
         }
-        root.addView(centerToastView)
+        rootLayout.addView(centerToastView)
 
         // 4. Antara Muka Kawalan Pemain (OSD) Sleek Minimalis
         osdContainer = buildMinimalistOsd()
-        root.addView(osdContainer)
+        rootLayout.addView(osdContainer)
 
-        webView.setOnTouchListener { _, event ->
-            if (event.action == android.view.MotionEvent.ACTION_UP) {
-                toggleOsd()
-            }
-            false
-        }
-
-        setContentView(root)
+        setContentView(rootLayout)
 
         startStreamResolution(pageUrl, initialEmbedUrl, currentServerName)
+    }
+
+    private fun createFreshWebView(): WebView {
+        val wv = WebView(this).apply {
+            setBackgroundColor(Color.BLACK)
+            isFocusable = false
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
+            setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_UP) {
+                    toggleOsd()
+                }
+                false
+            }
+        }
+        webView = wv
+        configureWebView()
+        return wv
     }
 
     private fun buildMinimalistOsd(): FrameLayout {
@@ -402,31 +413,91 @@ class PlayerActivity : Activity() {
                 var effectiveLabel = serverLabel
 
                 if (embedToResolve.isBlank() && targetPageUrl.isNotBlank()) {
-                    val lkDetail = try {
-                        LK21Scraper.fetchDetail(baseUrl, targetPageUrl)
-                    } catch (_: Exception) {
-                        null
-                    }
+                    if (Watch32Domain.isWatch32Uri(targetPageUrl)) {
+                        val detail = Watch32Domain.fetchDetail(targetPageUrl)
+                            ?: throw IllegalStateException("Watch32 detail unavailable")
+                        currentTitle = detail.title
+                        if (posterUrl.isBlank()) posterUrl = detail.posterUrl
+                        if (currentGenre.isBlank()) currentGenre = detail.genre
+                        if (mirrors.isEmpty()) {
+                            mirrors.addAll(detail.mirrors)
+                        }
+                        if (episodes.isEmpty()) {
+                            episodes.addAll(detail.episodes)
+                        }
 
-                    if (lkDetail != null && (!lkDetail.mainEmbedUrl.isNullOrBlank() || lkDetail.mirrors.isNotEmpty() || lkDetail.episodes.isNotEmpty())) {
-                        currentTitle = lkDetail.title
-                        if (posterUrl.isBlank()) posterUrl = lkDetail.posterUrl
-                        if (currentGenre.isBlank()) currentGenre = lkDetail.genre
-                        mirrors.clear()
-                        mirrors.addAll(lkDetail.mirrors)
-                        episodes.clear()
-                        episodes.addAll(lkDetail.episodes)
-
-                        if (lkDetail.mainEmbedUrl.isNullOrBlank() && lkDetail.episodes.isNotEmpty()) {
-                            val firstEp = lkDetail.episodes.first()
-                            val epDetail = LK21Scraper.fetchDetail(baseUrl, firstEp.url)
-                            currentTitle = "${lkDetail.title} • ${firstEp.label}"
+                        if (detail.mainEmbedUrl.isNullOrBlank() && detail.episodes.isNotEmpty()) {
+                            val firstEp = detail.episodes.first()
+                            val epDetail = Watch32Domain.fetchDetail(firstEp.url)
+                                ?: throw IllegalStateException("Episode unavailable")
+                            pageUrl = firstEp.url
+                            currentTitle = epDetail.title
                             currentEpisodeLabel = firstEp.label
                             mirrors.clear()
                             mirrors.addAll(epDetail.mirrors)
                             embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
                         } else {
-                            embedToResolve = lkDetail.mainEmbedUrl ?: lkDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                            embedToResolve = detail.mainEmbedUrl ?: detail.mirrors.firstOrNull()?.embedUrl ?: ""
+                        }
+                        effectiveLabel = mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
+                    } else {
+                        val lkDetail = Lk21Domain.fetchDetail(baseUrl, targetPageUrl, enrichWithTmdb = false)
+                        if (lkDetail != null) {
+                            currentTitle = lkDetail.title
+                            if (posterUrl.isBlank()) posterUrl = lkDetail.posterUrl
+                            if (currentGenre.isBlank()) currentGenre = lkDetail.genre
+                            if (mirrors.isEmpty()) {
+                                mirrors.addAll(lkDetail.mirrors)
+                            }
+                            if (episodes.isEmpty()) {
+                                episodes.addAll(lkDetail.episodes)
+                            }
+
+                            if (lkDetail.mainEmbedUrl.isNullOrBlank() && lkDetail.episodes.isNotEmpty()) {
+                                val firstEp = lkDetail.episodes.first()
+                                val epDetail = Lk21Domain.fetchDetail(baseUrl, firstEp.url, enrichWithTmdb = false)
+                                if (epDetail != null) {
+                                    currentTitle = "${lkDetail.title} • ${firstEp.label}"
+                                    currentEpisodeLabel = firstEp.label
+                                    mirrors.clear()
+                                    mirrors.addAll(epDetail.mirrors)
+                                    embedToResolve = epDetail.mainEmbedUrl ?: epDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                                }
+                            } else {
+                                embedToResolve = lkDetail.mainEmbedUrl ?: lkDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                            }
+
+                            if (DomainManager.isWatch32Enabled(this@PlayerActivity)) {
+                                val backupMirrors = Watch32Scraper.findBackupMirrorsForLk21(
+                                    rawTitle = currentTitle,
+                                    episodeLabel = currentEpisodeLabel,
+                                    isSeries = episodes.isNotEmpty() || currentEpisodeLabel.isNotBlank()
+                                )
+                                backupMirrors.forEach { bm ->
+                                    if (mirrors.none { it.embedUrl == bm.embedUrl }) {
+                                        mirrors.add(bm)
+                                    }
+                                }
+                            }
+                        }
+
+                        if (embedToResolve.isBlank() && DomainManager.isWatch32Enabled(this@PlayerActivity)) {
+                            val fbDetail = Watch32Domain.findMatchingDetail(
+                                rawTitle = currentTitle,
+                                episodeLabel = currentEpisodeLabel,
+                                preferSeries = currentEpisodeLabel.isNotBlank()
+                            )
+                            if (fbDetail != null) {
+                                if (posterUrl.isBlank()) posterUrl = fbDetail.posterUrl
+                                if (currentGenre.isBlank()) currentGenre = fbDetail.genre
+                                mirrors.clear()
+                                mirrors.addAll(fbDetail.mirrors)
+                                if (episodes.isEmpty()) {
+                                    episodes.addAll(fbDetail.episodes)
+                                }
+                                embedToResolve = fbDetail.mainEmbedUrl ?: fbDetail.mirrors.firstOrNull()?.embedUrl ?: ""
+                                effectiveLabel = fbDetail.mirrors.firstOrNull()?.name ?: "W32 • Cinezo (No Ads)"
+                            }
                         }
                     }
                 }
@@ -437,7 +508,7 @@ class PlayerActivity : Activity() {
 
                 currentEmbedUrl = embedToResolve
                 currentServerName = effectiveLabel
-                val resolved = LK21Scraper.resolveStream(embedToResolve, effectiveLabel)
+                val resolved = DomainManager.resolveStream(embedToResolve, effectiveLabel)
 
                 // Rekod tontonan untuk algoritma cadangan pintar
                 UserRecommendationManager.recordView(this@PlayerActivity, currentGenre, targetPageUrl, weightBoost = 3)
@@ -643,7 +714,7 @@ class PlayerActivity : Activity() {
         settings.allowContentAccess = true
         settings.mediaPlaybackRequiresUserGesture = false
         settings.javaScriptCanOpenWindowsAutomatically = false
-        settings.setSupportMultipleWindows(true)
+        settings.setSupportMultipleWindows(false)
         settings.mixedContentMode = WebSettings.MIXED_CONTENT_ALWAYS_ALLOW
         settings.userAgentString =
             "Mozilla/5.0 (Linux; Android 13; SHIELD Android TV Build/RQ1A.210105.003; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/124.0.0.0 Mobile Safari/537.36"
@@ -651,12 +722,27 @@ class PlayerActivity : Activity() {
         webView.addJavascriptInterface(PlayerJsBridge(), "AndroidPlayer")
 
         webView.webViewClient = object : WebViewClient() {
+            @TargetApi(Build.VERSION_CODES.O)
             override fun onRenderProcessGone(
                 view: WebView?,
                 detail: RenderProcessGoneDetail?
             ): Boolean {
                 mainHandler.post {
-                    showCenterToast("RECOVERING PLAYER...")
+                    try {
+                        rootLayout.removeView(webView)
+                        webView.destroy()
+                    } catch (_: Exception) {
+                    }
+                    val fresh = createFreshWebView()
+                    rootLayout.addView(fresh, 0)
+                    val currentIndex = mirrors.indexOfFirst { it.embedUrl == currentEmbedUrl }
+                    if (currentIndex in 0 until mirrors.size - 1) {
+                        val nextMirror = mirrors[currentIndex + 1]
+                        showCenterToast("SWITCHING TO ${nextMirror.name}...")
+                        startStreamResolution(pageUrl, nextMirror.embedUrl, nextMirror.name)
+                    } else {
+                        showCenterToast("RECOVERING PLAYER...")
+                    }
                 }
                 return true
             }
@@ -968,7 +1054,11 @@ class PlayerActivity : Activity() {
                 sessionWatchedSec = 0
                 lastSavedSec = 0
                 isStreamReady = false
-                val defaultLabel = "P2P Direct"
+                val defaultLabel = if (Watch32Domain.isWatch32Uri(ep.url)) {
+                    "W32 • Cinezo (No Ads)"
+                } else {
+                    "P2P Direct"
+                }
                 startStreamResolution(ep.url, "", defaultLabel)
             }
             .setNegativeButton("CANCEL", null)
@@ -1059,19 +1149,20 @@ class PlayerActivity : Activity() {
     }
 
     private fun createOsdButton(label: String, isAccent: Boolean, onClick: () -> Unit): Button {
-        val normalBg = if (isAccent) "#0D9488" else "#0B2B38"
-        val normalBorder = if (isAccent) "#00D4B2" else "#134556"
+        val normalBg = if (isAccent) "#2400D4B2" else "#1F0B2B38"
+        val normalBorder = if (isAccent) "#00D4B2" else "#00000000"
+        val normalStroke = if (isAccent) 2 else 0
         return Button(this).apply {
             text = label
             isAllCaps = true
-            setTextColor(Color.parseColor("#F0FDFA"))
+            setTextColor(Color.parseColor(if (isAccent) "#F0FDFA" else "#99F6E4"))
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
-            typeface = Typeface.DEFAULT_BOLD
+            typeface = if (isAccent) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             letterSpacing = 0.05f
             isFocusable = true
             isFocusableInTouchMode = false
-            background = createRoundedBg(normalBg, normalBorder, 1, 6)
-            setPadding(dp(14), dp(8), dp(14), dp(8))
+            background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
+            setPadding(dp(16), dp(8), dp(16), dp(8))
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.WRAP_CONTENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -1079,16 +1170,19 @@ class PlayerActivity : Activity() {
                 rightMargin = dp(8)
             }
             setOnFocusChangeListener { v, hasFocus ->
+                val btn = v as Button
                 if (hasFocus) {
-                    (v as Button).setTextColor(Color.parseColor("#031117"))
-                    v.background = createRoundedBg("#00D4B2", "#FFFFFF", 2, 6)
-                    v.scaleX = 1.05f
-                    v.scaleY = 1.05f
+                    btn.setTextColor(Color.parseColor("#FFFFFF"))
+                    btn.typeface = Typeface.DEFAULT_BOLD
+                    btn.background = createRoundedBg("#3300D4B2", "#00D4B2", 2, 24)
+                    btn.scaleX = 1.05f
+                    btn.scaleY = 1.05f
                 } else {
-                    (v as Button).setTextColor(Color.parseColor("#F0FDFA"))
-                    v.background = createRoundedBg(normalBg, normalBorder, 1, 6)
-                    v.scaleX = 1.0f
-                    v.scaleY = 1.0f
+                    btn.setTextColor(Color.parseColor(if (isAccent) "#F0FDFA" else "#99F6E4"))
+                    btn.typeface = if (isAccent) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+                    btn.background = createRoundedBg(normalBg, normalBorder, normalStroke, 24)
+                    btn.scaleX = 1.0f
+                    btn.scaleY = 1.0f
                 }
             }
             setOnClickListener { onClick() }
