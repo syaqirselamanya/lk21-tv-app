@@ -56,13 +56,21 @@ class MainActivity : Activity() {
     private lateinit var contentColumn: LinearLayout
     private lateinit var heroContainer: FrameLayout
     private lateinit var heroBackdropView: ImageView
+    private lateinit var heroHotPickEyebrow: TextView
     private lateinit var heroLogoView: ImageView
     private lateinit var heroTitleView: TextView
     private lateinit var heroMetaView: TextView
     private lateinit var heroBadgeRow: LinearLayout
     private lateinit var heroPlotView: TextView
-    private lateinit var sourceModeBtn: Button
-    private lateinit var domainBtn: Button
+    private lateinit var heroCarouselDotsRow: LinearLayout
+    private lateinit var heroPrevSlideBtn: Button
+    private lateinit var heroNextSlideBtn: Button
+    private lateinit var navHomeBtn: Button
+    private lateinit var navContinueBtn: Button
+    private lateinit var navMovieBtn: Button
+    private lateinit var navSeriesBtn: Button
+    private lateinit var navFilterBtn: Button
+    private lateinit var navSettingsBtn: Button
     private lateinit var searchTopBtn: Button
     private val categoryPillButtons = mutableListOf<Pair<String, Button>>()
 
@@ -77,35 +85,55 @@ class MainActivity : Activity() {
 
     private var currentPage = 1
     private var currentPath = "/latest"
-    private var currentCategoryLabel = "LATEST"
+    private var currentCategoryLabel = "HOME"
+    private var activeFilterLabel = ""
     private var allLoadedItems = mutableListOf<MediaItem>()
+    private var hotPicksList = mutableListOf<MediaItem>()
+    private var currentHeroSlideIndex = 0
     private var activeHeroItem: MediaItem? = null
     private var pendingHeroRunnable: Runnable? = null
 
     private val prefs by lazy { getSharedPreferences("citeraloka_prefs", Context.MODE_PRIVATE) }
+    private val tvPrefs by lazy { getSharedPreferences("citeraloka_tv_prefs", Context.MODE_PRIVATE) }
 
     private var baseUrl: String
         get() = prefs.getString("base_url", "https://tv12.lk21official.cc") ?: "https://tv12.lk21official.cc"
         set(value) = prefs.edit().putString("base_url", value.trimEnd('/')).apply()
 
-    private var sourceMode: String
-        get() = prefs.getString("source_mode", "AUTO") ?: "AUTO"
-        set(value) = prefs.edit().putString("source_mode", value).apply()
+    private var isHeroAutoCarouselEnabled: Boolean
+        get() = tvPrefs.getBoolean("hero_auto_carousel", true)
+        set(value) = tvPrefs.edit().putBoolean("hero_auto_carousel", value).apply()
 
-    // Minimalist Category List (Box & Name only, no emojis, 100% English)
-    private val categories = listOf(
-        "LATEST" to "/latest",
-        "HOME" to "/",
-        "FEATURED" to "/top-movie-today",
+    // Senarai Kategori & Genre di dalam Modal FILTER (Netflix / Disney+ Hotstar Style)
+    private val filterCatalogOptions = listOf(
         "POPULAR" to "/populer",
-        "TV SERIES" to "/latest-series",
-        "2026" to "/year/2026",
+        "FEATURED" to "/top-movie-today",
+        "LATEST RELEASES" to "/latest",
+        "2026 RELEASES" to "/year/2026",
         "WESTERN" to "/country/usa",
         "KOREAN" to "/country/south-korea",
         "ACTION" to "/genre/action",
+        "SCI-FI" to "/genre/sci-fi",
         "HORROR" to "/genre/horror",
-        "SCI-FI" to "/genre/sci-fi"
+        "THRILLER" to "/genre/thriller",
+        "COMEDY" to "/genre/comedy",
+        "DRAMA" to "/genre/drama",
+        "ROMANCE" to "/genre/romance",
+        "ANIMATION" to "/genre/animation",
+        "CRIME" to "/genre/crime",
+        "FANTASY" to "/genre/fantasy",
+        "ADVENTURE" to "/genre/adventure"
     )
+
+    private val heroCarouselRunnable = object : Runnable {
+        override fun run() {
+            if (isHeroAutoCarouselEnabled && hotPicksList.size > 1 && ::mainScrollView.isInitialized && mainScrollView.scrollY < dp(180)) {
+                val nextIdx = (currentHeroSlideIndex + 1) % hotPicksList.size
+                showHeroHotPickSlide(nextIdx, resetTimer = false)
+            }
+            mainHandler.postDelayed(this, 7000L)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -126,7 +154,8 @@ class MainActivity : Activity() {
             )
         }
 
-        // Bar Navigasi Atas Modern & Minimalis (Butang Search & Domain sentiasa di sebelah kiri atas!)
+        // Bar Navigasi Atas Modern & Minimalis (Gaya Netflix / Disney+ Hotstar / Apple TV+)
+        // Kiri: Brand Logo | Tengah: HOME, CONTINUE WATCHING, MOVIE, TV SERIES, FILTER, SETTINGS | Kanan: SEARCH & PROFIL
         val topHeaderRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -138,13 +167,12 @@ class MainActivity : Activity() {
             )
         }
 
-        // Bahagian Kiri Tetap (Pinned Top-Left: Brand + SEARCH + DOMAIN)
+        // 1. Bahagian Kiri Tetap (Brand Logo)
         val leftPinnedGroup = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        // Ikon Rasmi CiteraLoka (Batik Gold 'C')
         val iconResId = resources.getIdentifier("ic_tv_logo", "drawable", packageName)
         if (iconResId != 0) {
             val brandIcon = ImageView(this).apply {
@@ -163,33 +191,21 @@ class MainActivity : Activity() {
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 15.5f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.12f
-            setPadding(0, 0, dp(14), 0)
+            setPadding(0, 0, dp(10), 0)
         }
         leftPinnedGroup.addView(brandLogo)
-
-        // Butang SEARCH sentiasa berada di sebelah kiri atas!
-        searchTopBtn = createMinimalNavPill("SEARCH", isSelectedProvider = { currentPath.contains("?s=") }) {
-            showSearchDialog()
-        }
-        leftPinnedGroup.addView(searchTopBtn)
-
-        // Butang DOMAIN dengan pilihan Tick (1. LK21, 2. Watch32) di sebelah kiri atas
-        domainBtn = createMinimalNavPill(DomainManager.getDomainButtonLabel(this), isSelectedProvider = { true }) {
-            showDomainDialog()
-        }
-        leftPinnedGroup.addView(domainBtn)
 
         val leftDivider = View(this).apply {
             setBackgroundColor(Color.parseColor(BORDER_SUBTLE_TEAL))
             layoutParams = LinearLayout.LayoutParams(dp(1), dp(20)).apply {
-                leftMargin = dp(6)
-                rightMargin = dp(10)
+                leftMargin = dp(4)
+                rightMargin = dp(12)
             }
         }
         leftPinnedGroup.addView(leftDivider)
         topHeaderRow.addView(leftPinnedGroup)
 
-        // Bahagian Kanan Boleh Skrol: Butang Halaman/Kategori Bentuk Bujur Minimalis
+        // 2. Bahagian Tengah: Tab Navigasi Utama Bentuk Bujur Minimalis
         val topBarScroll = HorizontalScrollView(this).apply {
             isHorizontalScrollBarEnabled = false
             layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
@@ -200,36 +216,85 @@ class MainActivity : Activity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        sourceMode = "AUTO"
-        sourceModeBtn = createCategoryBox(getSourceModeButtonLabel()) {
-            showSourceModeDialog()
-        }.apply {
-            visibility = View.GONE
-        }
-        topBar.addView(sourceModeBtn)
-
         categoryPillButtons.clear()
-        categories.forEach { (label, path) ->
-            val pillBtn = createMinimalNavPill(label, isSelectedProvider = { currentPath == path }) {
-                currentPage = 1
-                currentPath = path
-                currentCategoryLabel = label
-                refreshCategoryPillsAppearance()
-                loadCatalog(currentPath, currentPage)
-            }
-            categoryPillButtons.add(path to pillBtn)
-            topBar.addView(pillBtn)
+
+        navHomeBtn = createMinimalNavPill("HOME", isSelectedProvider = {
+            currentCategoryLabel == "HOME" && activeFilterLabel.isBlank()
+        }) {
+            activeFilterLabel = ""
+            currentPage = 1
+            currentPath = "/latest"
+            currentCategoryLabel = "HOME"
+            refreshCategoryPillsAppearance()
+            loadCatalog(currentPath, currentPage)
         }
+        topBar.addView(navHomeBtn)
 
-        topBar.addView(createMinimalNavPill("UPDATE", isSelectedProvider = { false }) {
-            AppUpdateManager.checkUpdate(this, isManual = true)
-        })
+        navContinueBtn = createMinimalNavPill("CONTINUE WATCHING", isSelectedProvider = {
+            currentCategoryLabel == "CONTINUE WATCHING"
+        }) {
+            activeFilterLabel = ""
+            currentCategoryLabel = "CONTINUE WATCHING"
+            refreshCategoryPillsAppearance()
+            openContinueWatchingTab()
+        }
+        topBar.addView(navContinueBtn)
 
-        // Profil aktif (Netflix-style)
-        topBar.addView(createProfileChip())
+        navMovieBtn = createMinimalNavPill("MOVIE", isSelectedProvider = {
+            currentCategoryLabel == "MOVIE" && activeFilterLabel.isBlank()
+        }) {
+            activeFilterLabel = ""
+            currentPage = 1
+            currentPath = "/top-movie-today"
+            currentCategoryLabel = "MOVIE"
+            refreshCategoryPillsAppearance()
+            loadCatalog(currentPath, currentPage)
+        }
+        topBar.addView(navMovieBtn)
+
+        navSeriesBtn = createMinimalNavPill("TV SERIES", isSelectedProvider = {
+            currentCategoryLabel == "TV SERIES" && activeFilterLabel.isBlank()
+        }) {
+            activeFilterLabel = ""
+            currentPage = 1
+            currentPath = "/latest-series"
+            currentCategoryLabel = "TV SERIES"
+            refreshCategoryPillsAppearance()
+            loadCatalog(currentPath, currentPage)
+        }
+        topBar.addView(navSeriesBtn)
+
+        navFilterBtn = createMinimalNavPill("FILTER", isSelectedProvider = {
+            activeFilterLabel.isNotBlank()
+        }) {
+            showFilterDialog()
+        }
+        topBar.addView(navFilterBtn)
+
+        navSettingsBtn = createMinimalNavPill("SETTINGS", isSelectedProvider = { false }) {
+            showSettingsDialog()
+        }
+        topBar.addView(navSettingsBtn)
 
         topBarScroll.addView(topBar)
         topHeaderRow.addView(topBarScroll)
+
+        // 3. Bahagian Kanan Tetap (Di TV: Butang SEARCH di sebelah kanan + Profil)
+        val rightPinnedGroup = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(8), 0, 0, 0)
+        }
+
+        searchTopBtn = createMinimalNavPill("SEARCH", isSelectedProvider = {
+            currentPath.contains("?s=")
+        }) {
+            showSearchDialog()
+        }
+        rightPinnedGroup.addView(searchTopBtn)
+        rightPinnedGroup.addView(createProfileChip())
+
+        topHeaderRow.addView(rightPinnedGroup)
         root.addView(topHeaderRow)
         refreshCategoryPillsAppearance()
 
@@ -365,9 +430,15 @@ class MainActivity : Activity() {
 
     override fun onResume() {
         super.onResume()
-        // Muat semula seksyen Sambung Menonton setiap kali pengguna kembali ke MainActivity
         refreshContinueWatchingSection()
         refreshRecommendationSection()
+        mainHandler.removeCallbacks(heroCarouselRunnable)
+        mainHandler.postDelayed(heroCarouselRunnable, 7000L)
+    }
+
+    override fun onPause() {
+        mainHandler.removeCallbacks(heroCarouselRunnable)
+        super.onPause()
     }
 
     private fun createProfileChip(): LinearLayout {
@@ -490,16 +561,89 @@ class MainActivity : Activity() {
     }
 
     private fun refreshCategoryPillsAppearance() {
-        categoryPillButtons.forEach { (path, btn) ->
-            applyMinimalPillStyle(btn, isSelected = (currentPath == path), hasFocus = btn.hasFocus())
+        if (::navHomeBtn.isInitialized) {
+            applyMinimalPillStyle(
+                navHomeBtn,
+                isSelected = (currentCategoryLabel == "HOME" && activeFilterLabel.isBlank()),
+                hasFocus = navHomeBtn.hasFocus()
+            )
+        }
+        if (::navContinueBtn.isInitialized) {
+            applyMinimalPillStyle(
+                navContinueBtn,
+                isSelected = (currentCategoryLabel == "CONTINUE WATCHING"),
+                hasFocus = navContinueBtn.hasFocus()
+            )
+        }
+        if (::navMovieBtn.isInitialized) {
+            applyMinimalPillStyle(
+                navMovieBtn,
+                isSelected = (currentCategoryLabel == "MOVIE" && activeFilterLabel.isBlank()),
+                hasFocus = navMovieBtn.hasFocus()
+            )
+        }
+        if (::navSeriesBtn.isInitialized) {
+            applyMinimalPillStyle(
+                navSeriesBtn,
+                isSelected = (currentCategoryLabel == "TV SERIES" && activeFilterLabel.isBlank()),
+                hasFocus = navSeriesBtn.hasFocus()
+            )
+        }
+        if (::navFilterBtn.isInitialized) {
+            navFilterBtn.text = if (activeFilterLabel.isNotBlank()) "FILTER: $activeFilterLabel" else "FILTER"
+            applyMinimalPillStyle(
+                navFilterBtn,
+                isSelected = activeFilterLabel.isNotBlank(),
+                hasFocus = navFilterBtn.hasFocus()
+            )
+        }
+        if (::navSettingsBtn.isInitialized) {
+            applyMinimalPillStyle(
+                navSettingsBtn,
+                isSelected = false,
+                hasFocus = navSettingsBtn.hasFocus()
+            )
         }
         if (::searchTopBtn.isInitialized) {
-            applyMinimalPillStyle(searchTopBtn, isSelected = currentPath.contains("?s="), hasFocus = searchTopBtn.hasFocus())
+            applyMinimalPillStyle(
+                searchTopBtn,
+                isSelected = currentPath.contains("?s="),
+                hasFocus = searchTopBtn.hasFocus()
+            )
         }
-        if (::domainBtn.isInitialized) {
-            domainBtn.text = DomainManager.getDomainButtonLabel(this)
-            applyMinimalPillStyle(domainBtn, isSelected = true, hasFocus = domainBtn.hasFocus())
+    }
+
+    private fun openContinueWatchingTab() {
+        val historyList = ContinueWatchingManager.getList(this)
+        refreshContinueWatchingSection()
+        if (historyList.isEmpty()) {
+            Toast.makeText(this, "No titles in Continue Watching yet", Toast.LENGTH_SHORT).show()
+            sectionTitleView.text = "CONTINUE WATCHING  •  0 IN PROGRESS"
+            statusText.text = "Start watching any movie or TV series to see it here."
+            return
         }
+        val cwItems = historyList.map { cw ->
+            MediaItem(
+                title = cw.title,
+                url = cw.pageUrl,
+                posterUrl = cw.posterUrl,
+                rating = "",
+                episodeOrQuality = if (cw.episodeLabel.isNotBlank()) cw.episodeLabel else "${cw.remainingMinutes}M LEFT",
+                genre = cw.genre,
+                isSeries = cw.episodeLabel.isNotBlank(),
+                source = if (Watch32Domain.isWatch32Uri(cw.pageUrl)) "WATCH32" else "LK21",
+                statusBadge = "WATCHED ${cw.progressPercent}%"
+            )
+        }
+        sectionTitleView.text = "CONTINUE WATCHING  •  ${cwItems.size} IN PROGRESS"
+        statusText.text = "Select any title to resume or choose server"
+        hotPicksList.clear()
+        hotPicksList.addAll(cwItems.take(7))
+        currentHeroSlideIndex = 0
+        renderHeroCarouselDots()
+        showHeroHotPickSlide(0, resetTimer = true)
+        renderCards(cwItems)
+        mainScrollView.post { mainScrollView.scrollTo(0, 0) }
     }
 
     private fun createCategoryBox(label: String, onClick: () -> Unit): Button {
@@ -553,33 +697,6 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun getSourceModeButtonLabel(): String {
-        return when (sourceMode) {
-            "LK21" -> "SOURCE: LK21"
-            "WATCH32" -> "SOURCE: WATCH32"
-            else -> "SOURCE: AUTO"
-        }
-    }
-
-    private fun showSourceModeDialog() {
-        val options = arrayOf(
-            "SMART COMBINED (AUTO-FALLBACK + DUAL CATALOG)",
-            "PRIMARY SERVER (WITH WATCH32 BACKUP)",
-            "WATCH32 GLOBAL (FULL TMDB CATALOG + MULTI-SERVER)"
-        )
-        val modes = arrayOf("AUTO", "LK21", "WATCH32")
-        AlertDialog.Builder(this, AlertDialog.THEME_DEVICE_DEFAULT_DARK)
-            .setTitle("SELECT CONTENT SOURCE")
-            .setItems(options) { _, which ->
-                sourceMode = modes[which]
-                sourceModeBtn.text = getSourceModeButtonLabel()
-                currentPage = 1
-                loadCatalog(currentPath, currentPage)
-            }
-            .setNegativeButton("CANCEL", null)
-            .show()
-    }
-
     private fun normalizeTitleKey(raw: String): String {
         return raw.lowercase()
             .replace(Regex("\\(\\d{4}\\)"), "")
@@ -612,8 +729,12 @@ class MainActivity : Activity() {
                         allLoadedItems.clear()
                         allLoadedItems.addAll(combined)
 
-                        updateHeroSpotlightImmediate(combined.first())
-                        scheduleHeroSpotlight(combined.first(), delayMs = 0L)
+                        hotPicksList.clear()
+                        hotPicksList.addAll(combined.take(7))
+                        currentHeroSlideIndex = 0
+                        renderHeroCarouselDots()
+                        showHeroHotPickSlide(0, resetTimer = true)
+
                         refreshContinueWatchingSection()
                         refreshRecommendationSection()
                         renderCards(combined)
@@ -630,12 +751,13 @@ class MainActivity : Activity() {
     }
 
     /**
-     * Live Hero Spotlight (Expanded Cinematic Height - Dark Teal, No Emojis, 100% English)
-     * Scrolls up naturally when scrolling down the catalog.
+     * Apple TV+ Style "Hot Picks" Hero Carousel Stage
+     * Keeps the rich Dark Teal Hero Spotlight (16:9 backdrop + ClearLogo PNG + Badges + Synopsis)
+     * and adds auto-rotating Hot Picks slides with interactive `‹` / pill indicators / `›` controls.
      */
     private fun buildPinnedHeroSpotlightStage(): FrameLayout {
         val dm = resources.displayMetrics
-        val stageHeight = (dm.heightPixels * 0.64f).toInt().coerceIn(dp(290), dp(395))
+        val stageHeight = (dm.heightPixels * 0.65f).toInt().coerceIn(dp(295), dp(405))
         val isCompactHeight = dm.heightPixels < dp(460)
 
         val stage = FrameLayout(this).apply {
@@ -647,7 +769,7 @@ class MainActivity : Activity() {
         }
 
         // Layer 1: 16:9 Widescreen Backdrop on the right
-        val backdropWidth = (dm.widthPixels * 0.75f).toInt()
+        val backdropWidth = (dm.widthPixels * 0.76f).toInt()
         heroBackdropView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.CENTER_CROP
             setBackgroundColor(Color.parseColor(BG_DEEP_TEAL))
@@ -690,7 +812,7 @@ class MainActivity : Activity() {
             )
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                dp(76),
+                dp(82),
                 Gravity.BOTTOM
             )
         }
@@ -712,7 +834,7 @@ class MainActivity : Activity() {
         val infoCol = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.BOTTOM
-            setPadding(dp(30), dp(18), dp(18), dp(22))
+            setPadding(dp(30), dp(16), dp(18), dp(20))
             layoutParams = FrameLayout.LayoutParams(
                 infoWidth,
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -720,18 +842,29 @@ class MainActivity : Activity() {
             )
         }
 
+        // Apple TV+ Eyebrow Badge ("HOT PICK #1 OF 7  •  SPOTLIGHT")
+        heroHotPickEyebrow = TextView(this).apply {
+            text = "HOT PICKS  •  SPOTLIGHT"
+            setTextColor(Color.parseColor(ACCENT_TEAL))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.14f
+            setPadding(0, 0, 0, dp(6))
+        }
+        infoCol.addView(heroHotPickEyebrow)
+
         // Official ClearLogo PNG (from TMDB)
         heroLogoView = ImageView(this).apply {
             scaleType = ImageView.ScaleType.FIT_START
             adjustViewBounds = true
             maxWidth = dp(285)
-            maxHeight = if (isCompactHeight) dp(52) else dp(72)
+            maxHeight = if (isCompactHeight) dp(50) else dp(68)
             visibility = View.GONE
             layoutParams = LinearLayout.LayoutParams(
                 dp(275),
-                if (isCompactHeight) dp(52) else dp(70)
+                if (isCompactHeight) dp(50) else dp(66)
             ).apply {
-                bottomMargin = dp(8)
+                bottomMargin = dp(6)
             }
         }
         infoCol.addView(heroLogoView)
@@ -758,7 +891,7 @@ class MainActivity : Activity() {
             letterSpacing = 0.03f
             maxLines = 1
             ellipsize = TextUtils.TruncateAt.END
-            setPadding(0, 0, 0, dp(8))
+            setPadding(0, 0, 0, dp(7))
         }
         infoCol.addView(heroMetaView)
 
@@ -766,7 +899,7 @@ class MainActivity : Activity() {
         heroBadgeRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, 0, 0, dp(8))
+            setPadding(0, 0, 0, dp(7))
         }
         infoCol.addView(heroBadgeRow)
 
@@ -774,15 +907,15 @@ class MainActivity : Activity() {
         heroPlotView = TextView(this).apply {
             text = ""
             setTextColor(Color.parseColor("#D5F5F0"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 11.5f else 13f)
-            maxLines = if (isCompactHeight) 3 else 4
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, if (isCompactHeight) 11.5f else 12.8f)
+            maxLines = if (isCompactHeight) 3 else 3
             ellipsize = TextUtils.TruncateAt.END
-            setLineSpacing(0f, 1.18f)
-            setPadding(0, 0, 0, dp(14))
+            setLineSpacing(0f, 1.16f)
+            setPadding(0, 0, 0, dp(12))
         }
         infoCol.addView(heroPlotView)
 
-        // Quick Action Row
+        // Quick Action Row + Apple TV+ Carousel Switcher
         val actionRow = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -798,7 +931,97 @@ class MainActivity : Activity() {
         infoCol.addView(actionRow)
 
         stage.addView(infoCol)
+
+        // Layer 4: Apple TV+ Carousel Controls & Animated Pill Indicators (Bottom-Right of Hero Stage)
+        val carouselBar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            background = createRoundedBg("#B3031117", BORDER_SUBTLE_TEAL, 1, 24)
+            setPadding(dp(10), dp(6), dp(10), dp(6))
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.BOTTOM or Gravity.END
+            ).apply {
+                rightMargin = dp(28)
+                bottomMargin = dp(20)
+            }
+        }
+
+        heroPrevSlideBtn = createMinimalNavPill("‹", isSelectedProvider = { false }) {
+            if (hotPicksList.isNotEmpty()) {
+                val prev = (currentHeroSlideIndex - 1 + hotPicksList.size) % hotPicksList.size
+                showHeroHotPickSlide(prev, resetTimer = true)
+            }
+        }.apply {
+            setPadding(dp(12), dp(3), dp(12), dp(3))
+        }
+
+        heroCarouselDotsRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(6), 0, dp(6), 0)
+        }
+
+        heroNextSlideBtn = createMinimalNavPill("›", isSelectedProvider = { false }) {
+            if (hotPicksList.isNotEmpty()) {
+                val next = (currentHeroSlideIndex + 1) % hotPicksList.size
+                showHeroHotPickSlide(next, resetTimer = true)
+            }
+        }.apply {
+            setPadding(dp(12), dp(3), dp(12), dp(3))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+
+        carouselBar.addView(heroPrevSlideBtn)
+        carouselBar.addView(heroCarouselDotsRow)
+        carouselBar.addView(heroNextSlideBtn)
+        stage.addView(carouselBar)
+
         return stage
+    }
+
+    private fun renderHeroCarouselDots() {
+        if (!::heroCarouselDotsRow.isInitialized) return
+        heroCarouselDotsRow.removeAllViews()
+        val total = hotPicksList.size
+        if (total <= 1) return
+        for (i in 0 until total) {
+            val isActive = (i == currentHeroSlideIndex)
+            val dotView = View(this).apply {
+                val widthDp = if (isActive) dp(24) else dp(7)
+                val heightDp = dp(7)
+                val fillHex = if (isActive) ACCENT_TEAL else "#4D99F6E4"
+                background = createRoundedBg(fillHex, fillHex, 0, 8)
+                isClickable = true
+                layoutParams = LinearLayout.LayoutParams(widthDp, heightDp).apply {
+                    leftMargin = dp(4)
+                    rightMargin = dp(4)
+                }
+                setOnClickListener {
+                    showHeroHotPickSlide(i, resetTimer = true)
+                }
+            }
+            heroCarouselDotsRow.addView(dotView)
+        }
+    }
+
+    private fun showHeroHotPickSlide(index: Int, resetTimer: Boolean) {
+        if (hotPicksList.isEmpty()) return
+        currentHeroSlideIndex = index.coerceIn(0, hotPicksList.size - 1)
+        val item = hotPicksList[currentHeroSlideIndex]
+        if (::heroHotPickEyebrow.isInitialized) {
+            heroHotPickEyebrow.text = "HOT PICK #${currentHeroSlideIndex + 1} OF ${hotPicksList.size}  •  APPLE TV+ SPOTLIGHT"
+        }
+        renderHeroCarouselDots()
+        scheduleHeroSpotlight(item, delayMs = 0L, isHotPickSlide = true)
+        if (resetTimer) {
+            mainHandler.removeCallbacks(heroCarouselRunnable)
+            mainHandler.postDelayed(heroCarouselRunnable, 7000L)
+        }
     }
 
     private fun createCompactHeroButton(
@@ -836,6 +1059,8 @@ class MainActivity : Activity() {
                     btn.background = createRoundedBg("#3300D4B2", ACCENT_TEAL, 2, 24)
                     btn.scaleX = 1.04f
                     btn.scaleY = 1.04f
+                    mainHandler.removeCallbacks(heroCarouselRunnable)
+                    mainHandler.postDelayed(heroCarouselRunnable, 9000L)
                 } else {
                     btn.setTextColor(Color.parseColor(if (isPrimary) TEXT_PRIMARY else "#99F6E4"))
                     btn.typeface = if (isPrimary) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
@@ -866,8 +1091,18 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun updateHeroSpotlightImmediate(item: MediaItem) {
+    private fun updateHeroSpotlightImmediate(item: MediaItem, isHotPickSlide: Boolean = false) {
         activeHeroItem = item
+        if (!isHotPickSlide && ::heroHotPickEyebrow.isInitialized) {
+            val hpIdx = hotPicksList.indexOfFirst { it.url == item.url }
+            if (hpIdx >= 0) {
+                currentHeroSlideIndex = hpIdx
+                heroHotPickEyebrow.text = "HOT PICK #${hpIdx + 1} OF ${hotPicksList.size}  •  APPLE TV+ SPOTLIGHT"
+                renderHeroCarouselDots()
+            } else {
+                heroHotPickEyebrow.text = "SELECTED TITLE  •  SPOTLIGHT PREVIEW"
+            }
+        }
         val cleanTitle = item.title.replace(Regex("\\s*\\(\\d{4}\\)\\s*$"), "").trim().ifBlank { item.title }
         heroLogoView.setImageDrawable(null)
         heroLogoView.visibility = View.GONE
@@ -912,10 +1147,10 @@ class MainActivity : Activity() {
         }
     }
 
-    private fun scheduleHeroSpotlight(item: MediaItem, delayMs: Long = 110L) {
+    private fun scheduleHeroSpotlight(item: MediaItem, delayMs: Long = 110L, isHotPickSlide: Boolean = false) {
         pendingHeroRunnable?.let { mainHandler.removeCallbacks(it) }
         val task = Runnable {
-            updateHeroSpotlightImmediate(item)
+            updateHeroSpotlightImmediate(item, isHotPickSlide = isHotPickSlide)
             executor.execute {
                 val enriched = Watch32Scraper.enrichHeroSpotlight(item)
                 mainHandler.post {
@@ -1832,6 +2067,325 @@ class MainActivity : Activity() {
             }
             .setNegativeButton("CANCEL", null)
             .show()
+    }
+
+    private fun showFilterDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createRoundedBg(BG_SURFACE_TEAL, ACCENT_TEAL, 1, 20)
+            setPadding(dp(26), dp(22), dp(26), dp(22))
+            layoutParams = ViewGroup.LayoutParams(dp(640), ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val title = TextView(this).apply {
+            text = "FILTER CATALOG & GENRES"
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+        }
+        val sub = TextView(this).apply {
+            text = "Browse by Popular, Featured, Country, Year, or Genre (Netflix / Disney+ Hotstar Style):"
+            setTextColor(Color.parseColor(TEXT_SECONDARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            setPadding(0, dp(4), 0, dp(14))
+        }
+        root.addView(title)
+        root.addView(sub)
+
+        val grid = GridLayout(this).apply {
+            columnCount = 3
+            useDefaultMargins = true
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(14) }
+        }
+
+        var firstFilterBtn: Button? = null
+        filterCatalogOptions.forEach { (label, path) ->
+            val isSelectedNow = (activeFilterLabel == label || currentPath == path)
+            val btn = createMinimalNavPill(label, isSelectedProvider = { isSelectedNow }) {
+                activeFilterLabel = label
+                currentCategoryLabel = label
+                currentPath = path
+                currentPage = 1
+                dialog.dismiss()
+                refreshCategoryPillsAppearance()
+                loadCatalog(currentPath, currentPage)
+            }.apply {
+                gravity = Gravity.CENTER
+                setPadding(dp(16), dp(10), dp(16), dp(10))
+                layoutParams = GridLayout.LayoutParams().apply {
+                    width = dp(182)
+                    setMargins(dp(5), dp(5), dp(5), dp(5))
+                }
+            }
+            if (firstFilterBtn == null) firstFilterBtn = btn
+            grid.addView(btn)
+        }
+        root.addView(grid)
+
+        val bottomRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+        if (activeFilterLabel.isNotBlank()) {
+            bottomRow.addView(createSleekButton("CLEAR FILTER", isPrimary = false) {
+                activeFilterLabel = ""
+                currentCategoryLabel = "HOME"
+                currentPath = "/latest"
+                currentPage = 1
+                dialog.dismiss()
+                refreshCategoryPillsAppearance()
+                loadCatalog(currentPath, currentPage)
+            })
+        }
+        bottomRow.addView(createSleekButton("CLOSE", isPrimary = false) {
+            dialog.dismiss()
+        })
+        root.addView(bottomRow)
+
+        dialog.setContentView(root)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
+        dialog.window?.setLayout(dp(640), ViewGroup.LayoutParams.WRAP_CONTENT)
+        firstFilterBtn?.requestFocus()
+    }
+
+    private fun showSettingsDialog() {
+        val dialog = Dialog(this)
+        dialog.requestWindowFeature(Window.FEATURE_NO_TITLE)
+
+        var tickLk21 = DomainManager.isLk21Enabled(this)
+        var tickWatch32 = DomainManager.isWatch32Enabled(this)
+
+        val outerScroll = ScrollView(this).apply {
+            isVerticalScrollBarEnabled = false
+        }
+
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            background = createRoundedBg(BG_SURFACE_TEAL, ACCENT_TEAL, 1, 20)
+            setPadding(dp(26), dp(20), dp(26), dp(20))
+            layoutParams = ViewGroup.LayoutParams(dp(620), ViewGroup.LayoutParams.WRAP_CONTENT)
+        }
+
+        val title = TextView(this).apply {
+            text = "SETTINGS & PREFERENCES"
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 19f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.06f
+        }
+        val activeProfile = ProfileManager.getActive(this)?.name ?: "Default"
+        val sub = TextView(this).apply {
+            text = "Active Profile: $activeProfile  •  ${DomainManager.getDomainStatusBadge(this@MainActivity)}"
+            setTextColor(Color.parseColor(ACCENT_TEAL))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            typeface = Typeface.DEFAULT_BOLD
+            setPadding(0, dp(4), 0, dp(14))
+        }
+        root.addView(title)
+        root.addView(sub)
+
+        // SECTION 1: DOMAIN SELECT (1. LK21 & 2. WATCH32)
+        val domainHeader = TextView(this).apply {
+            text = "1. STREAMING DOMAIN SELECT (TICK ONE OR BOTH)"
+            setTextColor(Color.parseColor(TEXT_MUTED))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.05f
+            setPadding(0, 0, 0, dp(6))
+        }
+        root.addView(domainHeader)
+
+        lateinit var btnLk21: Button
+        lateinit var btnWatch32: Button
+
+        fun updateTickButtons() {
+            btnLk21.text = "${if (tickLk21) "[✓]" else "[   ]"}  1. LK21  (${baseUrl.removePrefix("https://")})"
+            btnWatch32.text = "${if (tickWatch32) "[✓]" else "[   ]"}  2. WATCH32  (watch32.site)"
+            applyMinimalPillStyle(btnLk21, isSelected = tickLk21, hasFocus = btnLk21.hasFocus())
+            applyMinimalPillStyle(btnWatch32, isSelected = tickWatch32, hasFocus = btnWatch32.hasFocus())
+        }
+
+        btnLk21 = createMinimalNavPill("1. LK21", isSelectedProvider = { tickLk21 }) {
+            if (tickLk21 && !tickWatch32) {
+                Toast.makeText(this, "Please keep at least 1 domain ticked", Toast.LENGTH_SHORT).show()
+            } else {
+                tickLk21 = !tickLk21
+                updateTickButtons()
+            }
+        }.apply {
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+
+        btnWatch32 = createMinimalNavPill("2. WATCH32", isSelectedProvider = { tickWatch32 }) {
+            if (tickWatch32 && !tickLk21) {
+                Toast.makeText(this, "Please keep at least 1 domain ticked", Toast.LENGTH_SHORT).show()
+            } else {
+                tickWatch32 = !tickWatch32
+                updateTickButtons()
+            }
+        }.apply {
+            gravity = Gravity.START or Gravity.CENTER_VERTICAL
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(10) }
+        }
+
+        root.addView(btnLk21)
+        root.addView(btnWatch32)
+        updateTickButtons()
+
+        val urlInput = EditText(this).apply {
+            setText(baseUrl)
+            hint = "LK21 Mirror URL (https://...)"
+            setSingleLine(true)
+            setTextColor(Color.parseColor(TEXT_PRIMARY))
+            setHintTextColor(Color.GRAY)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12.5f)
+            background = createRoundedBg(BG_DEEP_TEAL, BORDER_SUBTLE_TEAL, 1, 14)
+            setPadding(dp(14), dp(7), dp(14), dp(7))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(14) }
+        }
+        root.addView(urlInput)
+
+        // SECTION 2: APP UPDATE, PROFILE & PLAYBACK PREFERENCES
+        val prefHeader = TextView(this).apply {
+            text = "2. APP UPDATE, PROFILE & PLAYBACK SETTINGS"
+            setTextColor(Color.parseColor(TEXT_MUTED))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 11f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.05f
+            setPadding(0, dp(2), 0, dp(8))
+        }
+        root.addView(prefHeader)
+
+        val prefRow1 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+
+        val checkUpdateBtn = createSleekButton("CHECK FOR UPDATE", isPrimary = true) {
+            dialog.dismiss()
+            AppUpdateManager.checkUpdate(this, isManual = true)
+        }
+        val switchProfileBtn = createSleekButton("SWITCH PROFILE", isPrimary = false) {
+            dialog.dismiss()
+            startActivity(Intent(this, ProfileActivity::class.java))
+        }
+        prefRow1.addView(checkUpdateBtn)
+        prefRow1.addView(switchProfileBtn)
+        root.addView(prefRow1)
+
+        val prefRow2 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(8) }
+        }
+
+        val fitModes = listOf("contain" to "FIT", "cover" to "ZOOM", "fill" to "FILL")
+        fun getAspectLabel(): String {
+            val cur = tvPrefs.getString("default_aspect_mode", "contain") ?: "contain"
+            val lbl = fitModes.firstOrNull { it.first == cur }?.second ?: "FIT"
+            return "DEFAULT ASPECT: $lbl"
+        }
+
+        lateinit var aspectPrefBtn: Button
+        aspectPrefBtn = createSleekButton(getAspectLabel(), isPrimary = false) {
+            val cur = tvPrefs.getString("default_aspect_mode", "contain") ?: "contain"
+            val idx = fitModes.indexOfFirst { it.first == cur }.takeIf { it >= 0 } ?: 0
+            val next = fitModes[(idx + 1) % fitModes.size]
+            tvPrefs.edit().putString("default_aspect_mode", next.first).apply()
+            aspectPrefBtn.text = getAspectLabel()
+        }
+
+        lateinit var carouselToggleBtn: Button
+        carouselToggleBtn = createSleekButton(
+            "HOT PICKS AUTO-SLIDE: ${if (isHeroAutoCarouselEnabled) "ON" else "OFF"}",
+            isPrimary = false
+        ) {
+            isHeroAutoCarouselEnabled = !isHeroAutoCarouselEnabled
+            carouselToggleBtn.text = "HOT PICKS AUTO-SLIDE: ${if (isHeroAutoCarouselEnabled) "ON" else "OFF"}"
+        }
+        prefRow2.addView(aspectPrefBtn)
+        prefRow2.addView(carouselToggleBtn)
+        root.addView(prefRow2)
+
+        val prefRow3 = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { bottomMargin = dp(14) }
+        }
+
+        val clearHistoryBtn = createSleekButton("CLEAR WATCH HISTORY", isPrimary = false) {
+            ContinueWatchingManager.getList(this).forEach { cw ->
+                ContinueWatchingManager.remove(this, cw.pageUrl)
+            }
+            refreshContinueWatchingSection()
+            Toast.makeText(this, "Continue Watching history cleared", Toast.LENGTH_SHORT).show()
+        }
+        val clearCacheBtn = createSleekButton("CLEAR IMAGE CACHE", isPrimary = false) {
+            imageCache.evictAll()
+            Toast.makeText(this, "Image cache cleared", Toast.LENGTH_SHORT).show()
+        }
+        prefRow3.addView(clearHistoryBtn)
+        prefRow3.addView(clearCacheBtn)
+        root.addView(prefRow3)
+
+        val actionRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.END
+        }
+        val cancelBtn = createSleekButton("CANCEL", isPrimary = false) {
+            dialog.dismiss()
+        }
+        val saveBtn = createSleekButton("SAVE & APPLY", isPrimary = true) {
+            val newUrl = urlInput.text.toString().trim()
+            if (newUrl.startsWith("http")) {
+                baseUrl = newUrl
+            }
+            DomainManager.setDomainsEnabled(this, tickLk21, tickWatch32)
+            refreshCategoryPillsAppearance()
+            dialog.dismiss()
+            currentPage = 1
+            loadCatalog(currentPath, currentPage)
+        }
+        actionRow.addView(cancelBtn)
+        actionRow.addView(saveBtn)
+        root.addView(actionRow)
+
+        outerScroll.addView(root)
+        dialog.setContentView(outerScroll)
+        dialog.window?.setBackgroundDrawableResource(android.R.color.transparent)
+        dialog.show()
+        dialog.window?.setLayout(dp(620), ViewGroup.LayoutParams.WRAP_CONTENT)
+        btnLk21.requestFocus()
     }
 
     private fun showDomainDialog() {

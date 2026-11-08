@@ -496,7 +496,7 @@ object LK21Scraper {
                 isDirectHls = false,
                 referer = ref,
                 serverName = serverName,
-                isDirectWebEmbed = false
+                isDirectWebEmbed = true
             )
         }
         try {
@@ -539,7 +539,8 @@ object LK21Scraper {
                         streamUrl = realEmbedUrl,
                         isDirectHls = false,
                         referer = "https://$nodeDomain/",
-                        serverName = serverName
+                        serverName = serverName,
+                        isDirectWebEmbed = true
                     )
                 }
             }
@@ -550,7 +551,8 @@ object LK21Scraper {
             streamUrl = embedUrl,
             isDirectHls = embedUrl.contains(".m3u8"),
             referer = "https://tv12.lk21official.cc/",
-            serverName = serverName
+            serverName = serverName,
+            isDirectWebEmbed = !embedUrl.contains(".m3u8")
         )
     }
 }

@@ -1,7 +1,7 @@
 {
-  "versionCode": 16,
-  "versionName": "4.0.4",
+  "versionCode": 17,
+  "versionName": "4.0.5",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.4.apk",
-  "changelog": "v4.0.4: Dual-Domain Selector (1. LK21 & 2. Watch32 tick button di Top Bar + dalam Movie/Series Detail), Modular Domain Architecture (domains/lk21 & domains/watch32), Watch32 Official Cinezo Ad-Free Engine, dan UI Bujur Minimalist (Search pinned di kiri atas, outline & bold bila select sahaja)."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.5.apk",
+  "changelog": "v4.0.5: Direct Domain Player Controls & Scrolling Timer (Ad-Free App Wrapper), Apple TV+ Hot Picks Hero Carousel, Minimalist Header (Home, Continue Watching, Movie, TV Series, Filter, Settings + Search di sebelah kanan TV), Netflix/Disney+ Filter Modal, dan Settings Hub (Domain Select, Check Update, Aspect Ratio, Carousel Auto-Slide, Clear History/Cache)."
 }

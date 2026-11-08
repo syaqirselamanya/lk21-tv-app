@@ -36,6 +36,7 @@ class PlayerActivity : Activity() {
 
     private lateinit var webView: WebView
     private lateinit var osdContainer: FrameLayout
+    private lateinit var showTopBarPillBtn: Button
     private lateinit var loadingOverlay: LinearLayout
     private lateinit var loadingStatusText: TextView
     private lateinit var centerToastView: TextView
@@ -85,6 +86,7 @@ class PlayerActivity : Activity() {
 
     private val autoHideRunnable = Runnable {
         osdContainer.visibility = View.GONE
+        showTopBarPillBtn.visibility = View.VISIBLE
         enterImmersiveFullscreen()
     }
 
@@ -129,6 +131,10 @@ class PlayerActivity : Activity() {
         currentEpisodeLabel = intent.getStringExtra("EPISODE_LABEL") ?: ""
         resumeSec = intent.getIntExtra("RESUME_SEC", 0)
         fallbackBaseSec = resumeSec
+
+        val defaultFitPref = getSharedPreferences("citeraloka_phone_prefs", Context.MODE_PRIVATE)
+            .getString("default_aspect_mode", "contain") ?: "contain"
+        fitIndex = fitModes.indexOfFirst { it.first == defaultFitPref }.takeIf { it >= 0 } ?: 0
 
         val mirrorNames = intent.getStringArrayListExtra("MIRROR_NAMES") ?: arrayListOf()
         val mirrorUrls = intent.getStringArrayListExtra("MIRROR_URLS") ?: arrayListOf()
@@ -205,33 +211,37 @@ class PlayerActivity : Activity() {
         }
         root.addView(centerToastView)
 
-        // Pengesan Sentuhan Jari: Single-tap buka/tutup OSD, Double-tap kiri/kanan -10s/+10s
-        gestureDetector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
-            override fun onSingleTapConfirmed(e: MotionEvent): Boolean {
-                toggleOsd()
-                return true
-            }
-
-            override fun onDoubleTap(e: MotionEvent): Boolean {
-                val width = resources.displayMetrics.widthPixels.coerceAtLeast(1)
-                val xRatio = e.x / width.toFloat()
-                when {
-                    xRatio < 0.35f -> seekRelative(-10)
-                    xRatio > 0.65f -> seekRelative(10)
-                    else -> togglePlayPause()
-                }
-                return true
-            }
-        })
-
-        // 4. Antara Muka Kawalan Sentuh Pemain (OSD)
+        // 4. Antara Muka Bar Atas Minimalis (Kawalan Bawah & Scrolling Timer menggunakan Domain Player secara terus)
         osdContainer = buildTouchMinimalistOsd()
         root.addView(osdContainer)
 
-        webView.setOnTouchListener { _, event ->
-            gestureDetector.onTouchEvent(event)
-            false
+        showTopBarPillBtn = Button(this).apply {
+            text = "MENU • SERVER"
+            isAllCaps = true
+            setTextColor(Color.parseColor("#CC99F6E4"))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 10.5f)
+            typeface = Typeface.DEFAULT_BOLD
+            letterSpacing = 0.05f
+            minHeight = 0
+            minimumHeight = 0
+            minWidth = 0
+            minimumWidth = 0
+            background = createRoundedBg("#99031117", "#6600D4B2", 1, 20)
+            setPadding(dp(14), dp(6), dp(14), dp(6))
+            visibility = View.GONE
+            layoutParams = FrameLayout.LayoutParams(
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP or Gravity.START
+            ).apply {
+                leftMargin = dp(16)
+                topMargin = dp(14)
+            }
+            setOnClickListener {
+                toggleOsd()
+            }
         }
+        root.addView(showTopBarPillBtn)
 
         setContentView(root)
 
@@ -259,19 +269,16 @@ class PlayerActivity : Activity() {
 
     @SuppressLint("ClickableViewAccessibility")
     private fun buildTouchMinimalistOsd(): FrameLayout {
+        // Hanya Bar Atas Minimalis (WRAP_CONTENT di atas) supaya Kawalan Asal Domain Player & Scrolling Timer di bawah berfungsi 100% secara terus!
         val container = FrameLayout(this).apply {
             layoutParams = FrameLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
+                ViewGroup.LayoutParams.WRAP_CONTENT,
+                Gravity.TOP
             )
-            // Sentuh ruang kosong tengah OSD untuk sembunyikan OSD
-            setOnTouchListener { _, event ->
-                gestureDetector.onTouchEvent(event)
-                true
-            }
         }
 
-        // BAR ATAS: KEMBALI, Tajuk Cerita, EPISOD, SERVER
+        // BAR ATAS: BACK, Tajuk Cerita, EPISODES, SERVER, ASPECT, HIDE BAR
         val topBar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -293,7 +300,7 @@ class PlayerActivity : Activity() {
         titleTextView = TextView(this).apply {
             text = currentTitle.uppercase()
             setTextColor(Color.parseColor("#F0FDFA"))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14.5f)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
             typeface = Typeface.DEFAULT_BOLD
             letterSpacing = 0.03f
             maxLines = 1
@@ -312,30 +319,28 @@ class PlayerActivity : Activity() {
             showServerSwitchDialog()
         }
 
+        aspectBtn = createOsdButton(fitModes[fitIndex].second, isAccent = false) {
+            cycleAspectRatio()
+        }
+
+        val hideTopBarBtn = createOsdButton("HIDE BAR", isAccent = false) {
+            osdContainer.visibility = View.GONE
+            showTopBarPillBtn.visibility = View.VISIBLE
+            enterImmersiveFullscreen()
+        }
+
         topBar.addView(backBtn)
         topBar.addView(titleTextView)
         topBar.addView(episodeListBtn)
         topBar.addView(serverBadgeBtn)
+        topBar.addView(aspectBtn)
+        topBar.addView(hideTopBarBtn)
         container.addView(topBar)
 
-        // PANEL BAWAH: SeekBar & Butang Sentuhan Minimalis (Tanpa Emoji)
+        // Elemen dalaman disimpan dalam keadaan tersembunyi (GONE) supaya keseluruhan kawalan bawah menggunakan Domain Player secara terus
         val bottomPanel = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            isClickable = true
-            background = GradientDrawable(
-                GradientDrawable.Orientation.BOTTOM_TOP,
-                intArrayOf(
-                    Color.parseColor("#F2031117"),
-                    Color.parseColor("#CC071F29"),
-                    Color.TRANSPARENT
-                )
-            )
-            setPadding(dp(20), dp(18), dp(20), dp(14))
-            layoutParams = FrameLayout.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT,
-                Gravity.BOTTOM
-            )
+            visibility = View.GONE
         }
 
         val timelineRow = LinearLayout(this).apply {
@@ -358,27 +363,6 @@ class PlayerActivity : Activity() {
                 leftMargin = dp(10)
                 rightMargin = dp(10)
             }
-            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-                override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {
-                    if (fromUser && currentDurationSec > 0) {
-                        val targetSec = (progress.toLong() * currentDurationSec / 1000L).toInt()
-                        timeCurrentView.text = formatTime(targetSec)
-                        rescheduleAutoHide()
-                    }
-                }
-
-                override fun onStartTrackingTouch(sb: SeekBar?) {
-                    isUserSeeking = true
-                }
-
-                override fun onStopTrackingTouch(sb: SeekBar?) {
-                    isUserSeeking = false
-                    if (currentDurationSec > 0 && sb != null) {
-                        val targetSec = (sb.progress.toLong() * currentDurationSec / 1000L).toInt()
-                        seekToSeconds(targetSec)
-                    }
-                }
-            })
         }
 
         timeTotalView = TextView(this).apply {
@@ -393,46 +377,13 @@ class PlayerActivity : Activity() {
         timelineRow.addView(timeTotalView)
         bottomPanel.addView(timelineRow)
 
-        val controlsScroll = HorizontalScrollView(this).apply {
-            isHorizontalScrollBarEnabled = false
-        }
-
-        val controlsRow = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-        }
-
         playPauseBtn = createOsdButton("PAUSE", isAccent = true) { togglePlayPause() }
-        val rw10Btn = createOsdButton("-10s", isAccent = false) { seekRelative(-10) }
-        val ff10Btn = createOsdButton("+10s", isAccent = false) { seekRelative(10) }
-        val rw30Btn = createOsdButton("-30s", isAccent = false) { seekRelative(-30) }
-        val ff30Btn = createOsdButton("+30s", isAccent = false) { seekRelative(30) }
-
-        val volDownBtn = createOsdButton("VOL -", isAccent = false) { adjustVolume(-1) }
         volumeStatusBtn = createOsdButton("VOL ${getCurrentVolumePercent()}%", isAccent = false) { toggleMute() }
-        val volUpBtn = createOsdButton("VOL +", isAccent = false) { adjustVolume(1) }
-
         speedBtn = createOsdButton("1.0x", isAccent = false) { cyclePlaybackSpeed() }
-        aspectBtn = createOsdButton("FIT", isAccent = false) { cycleAspectRatio() }
-        val hideOsdBtn = createOsdButton("CLOSE", isAccent = false) {
-            osdContainer.visibility = View.GONE
-            enterImmersiveFullscreen()
-        }
 
-        controlsRow.addView(playPauseBtn)
-        controlsRow.addView(rw10Btn)
-        controlsRow.addView(ff10Btn)
-        controlsRow.addView(rw30Btn)
-        controlsRow.addView(ff30Btn)
-        controlsRow.addView(volDownBtn)
-        controlsRow.addView(volumeStatusBtn)
-        controlsRow.addView(volUpBtn)
-        controlsRow.addView(speedBtn)
-        controlsRow.addView(aspectBtn)
-        controlsRow.addView(hideOsdBtn)
-
-        controlsScroll.addView(controlsRow)
-        bottomPanel.addView(controlsScroll)
+        bottomPanel.addView(playPauseBtn)
+        bottomPanel.addView(volumeStatusBtn)
+        bottomPanel.addView(speedBtn)
         container.addView(bottomPanel)
 
         return container
@@ -616,7 +567,7 @@ class PlayerActivity : Activity() {
                 <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
             </head>
             <body>
-                <video id="tv-video" autoplay playsinline></video>
+                <video id="tv-video" controls autoplay playsinline></video>
                 <script>
                     var video = document.getElementById('tv-video');
                     var streamUrl = "$m3u8Url";
@@ -799,44 +750,18 @@ class PlayerActivity : Activity() {
                 return false
             }
 
+            override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {
+                super.onPageStarted(view, url, favicon)
+                view?.evaluateJavascript(UNIVERSAL_PLAYER_BRIDGE_JS, null)
+            }
+
             override fun onPageFinished(view: WebView?, url: String?) {
                 super.onPageFinished(view, url)
                 view?.evaluateJavascript(AdBlocker.CLEAN_EMBED_JS, null)
+                view?.evaluateJavascript(UNIVERSAL_PLAYER_BRIDGE_JS, null)
+                val defaultCssFit = fitModes[fitIndex].first
                 view?.evaluateJavascript(
-                    """
-                    (function() {
-                        if (window.__citeralokaBridgeActive) return;
-                        window.__citeralokaBridgeActive = true;
-                        function bindVideoTag() {
-                            var v = document.querySelector('video');
-                            if (v && !v.__clBound) {
-                                v.__clBound = true;
-                                if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
-                                v.addEventListener('loadeddata', function() {
-                                    if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
-                                });
-                                v.addEventListener('playing', function() {
-                                    if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(true);
-                                });
-                                v.addEventListener('pause', function() {
-                                    if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(false);
-                                });
-                                v.addEventListener('timeupdate', function() {
-                                    if (window.AndroidPlayer && v.duration > 0) {
-                                        window.AndroidPlayer.onTimeUpdate(
-                                            Math.floor(v.currentTime || 0),
-                                            Math.floor(v.duration || 0)
-                                        );
-                                    }
-                                });
-                            }
-                        }
-                        setInterval(bindVideoTag, 1000);
-                        setTimeout(function() {
-                            if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
-                        }, 2200);
-                    })();
-                    """.trimIndent(),
+                    "if(window.playerControl) window.playerControl.setFit('$defaultCssFit');",
                     null
                 )
             }
@@ -927,20 +852,27 @@ class PlayerActivity : Activity() {
 
     private fun togglePlayPause() {
         rescheduleAutoHide()
+        val optimisticNext = !isPlaying
         webView.evaluateJavascript(
             """
             (function() {
-                if (window.playerControl) return window.playerControl.togglePlay();
-                var v = document.querySelector('video');
+                if (window.playerControl && window.playerControl.togglePlay) {
+                    return window.playerControl.togglePlay();
+                }
+                var v = window.__clActiveVideo || document.querySelector('video');
                 if (v) {
-                    if (v.paused) { v.play(); return true; }
+                    if (v.paused) { v.play().catch(function(){}); return true; }
                     else { v.pause(); return false; }
                 }
-                return true;
+                return $optimisticNext;
             })();
             """.trimIndent()
         ) { res ->
-            val nowPlaying = res?.contains("true") == true
+            val nowPlaying = when {
+                res?.contains("true") == true -> true
+                res?.contains("false") == true -> false
+                else -> optimisticNext
+            }
             isPlaying = nowPlaying
             playPauseBtn.text = if (nowPlaying) "PAUSE" else "PLAY"
             showCenterToast(if (nowPlaying) "PLAY" else "PAUSE")
@@ -949,33 +881,88 @@ class PlayerActivity : Activity() {
 
     private fun seekRelative(deltaSeconds: Int) {
         rescheduleAutoHide()
+        val basePos = if (currentPositionSec > 0) currentPositionSec else (fallbackBaseSec + sessionWatchedSec)
+        val effDur = if (currentDurationSec > 0) currentDurationSec else 0
+        val newPos = if (effDur > 0) {
+            (basePos + deltaSeconds).coerceIn(0, effDur)
+        } else {
+            (basePos + deltaSeconds).coerceAtLeast(0)
+        }
+        currentPositionSec = newPos
+        fallbackBaseSec = newPos
+        sessionWatchedSec = 0
+        timeCurrentView.text = formatTime(newPos)
+        if (effDur > 0) {
+            seekBar.progress = ((newPos.toLong() * 1000L) / effDur).toInt().coerceIn(0, 1000)
+        }
         webView.evaluateJavascript(
             """
             (function() {
-                if (window.playerControl) { window.playerControl.seekBy($deltaSeconds); return; }
-                var v = document.querySelector('video');
+                if (window.playerControl && window.playerControl.seekBy) {
+                    window.playerControl.seekBy($deltaSeconds);
+                    return;
+                }
+                var v = window.__clActiveVideo || document.querySelector('video');
                 if (v) v.currentTime = Math.max(0, (v.currentTime || 0) + $deltaSeconds);
             })();
             """.trimIndent(),
             null
         )
-        val label = if (deltaSeconds > 0) "+${deltaSeconds}s" else "${deltaSeconds}s"
+        val label = if (deltaSeconds > 0) "+${deltaSeconds}s  •  ${formatTime(newPos)}" else "${deltaSeconds}s  •  ${formatTime(newPos)}"
         showCenterToast(label)
     }
 
     private fun seekToSeconds(targetSeconds: Int) {
         rescheduleAutoHide()
+        val safeTarget = targetSeconds.coerceAtLeast(0)
+        currentPositionSec = safeTarget
+        fallbackBaseSec = safeTarget
+        sessionWatchedSec = 0
+        timeCurrentView.text = formatTime(safeTarget)
+        if (currentDurationSec > 0) {
+            seekBar.progress = ((safeTarget.toLong() * 1000L) / currentDurationSec).toInt().coerceIn(0, 1000)
+        }
         webView.evaluateJavascript(
             """
             (function() {
-                if (window.playerControl) { window.playerControl.seekTo($targetSeconds); return; }
-                var v = document.querySelector('video');
-                if (v) v.currentTime = $targetSeconds;
+                if (window.playerControl && window.playerControl.seekTo) {
+                    window.playerControl.seekTo($safeTarget);
+                    return;
+                }
+                var v = window.__clActiveVideo || document.querySelector('video');
+                if (v) v.currentTime = $safeTarget;
             })();
             """.trimIndent(),
             null
         )
-        showCenterToast(formatTime(targetSeconds))
+        showCenterToast("SEEK  •  ${formatTime(safeTarget)}")
+    }
+
+    private fun seekToRatio(ratio: Double) {
+        rescheduleAutoHide()
+        val clamped = ratio.coerceIn(0.0, 1.0)
+        webView.evaluateJavascript(
+            """
+            (function() {
+                if (window.playerControl && window.playerControl.seekToRatio) {
+                    return window.playerControl.seekToRatio($clamped);
+                }
+                var v = window.__clActiveVideo || document.querySelector('video');
+                if (v && v.duration > 0) {
+                    v.currentTime = Math.max(0, v.duration * $clamped);
+                    return Math.floor(v.currentTime);
+                }
+                return -1;
+            })();
+            """.trimIndent()
+        ) { res ->
+            val sec = res?.trim()?.toIntOrNull() ?: -1
+            if (sec >= 0) {
+                currentPositionSec = sec
+                timeCurrentView.text = formatTime(sec)
+                showCenterToast("SEEK  •  ${formatTime(sec)}")
+            }
+        }
     }
 
     private fun adjustVolume(direction: Int) {
@@ -1092,10 +1079,12 @@ class PlayerActivity : Activity() {
     private fun toggleOsd() {
         if (osdContainer.visibility == View.VISIBLE) {
             osdContainer.visibility = View.GONE
+            showTopBarPillBtn.visibility = View.VISIBLE
             mainHandler.removeCallbacks(autoHideRunnable)
             enterImmersiveFullscreen()
         } else {
             osdContainer.visibility = View.VISIBLE
+            showTopBarPillBtn.visibility = View.GONE
             rescheduleAutoHide()
         }
     }
@@ -1192,5 +1181,223 @@ class PlayerActivity : Activity() {
         mainHandler.removeCallbacksAndMessages(null)
         webView.destroy()
         super.onDestroy()
+    }
+
+    companion object {
+        private val UNIVERSAL_PLAYER_BRIDGE_JS = """
+            (function() {
+                if (!window.__clMediaHooked) {
+                    window.__clMediaHooked = true;
+                    try {
+                        var origPlay = HTMLMediaElement.prototype.play;
+                        HTMLMediaElement.prototype.play = function() {
+                            if (this.tagName === 'VIDEO') {
+                                window.__clActiveVideo = this;
+                                if (window.__clBindVideoElement) window.__clBindVideoElement(this);
+                            }
+                            return origPlay.apply(this, arguments);
+                        };
+                        var origPause = HTMLMediaElement.prototype.pause;
+                        HTMLMediaElement.prototype.pause = function() {
+                            if (this.tagName === 'VIDEO') {
+                                window.__clActiveVideo = this;
+                                if (window.__clBindVideoElement) window.__clBindVideoElement(this);
+                            }
+                            return origPause.apply(this, arguments);
+                        };
+                    } catch (e) {}
+                }
+
+                function findActiveVideo() {
+                    if (window.__clActiveVideo && window.__clActiveVideo.readyState >= 0) {
+                        return window.__clActiveVideo;
+                    }
+                    var direct = document.querySelector('video');
+                    if (direct) {
+                        window.__clActiveVideo = direct;
+                        return direct;
+                    }
+                    var allNodes = document.querySelectorAll('*');
+                    for (var i = 0; i < allNodes.length; i++) {
+                        var sr = allNodes[i].shadowRoot;
+                        if (sr) {
+                            var sv = sr.querySelector('video');
+                            if (sv) {
+                                window.__clActiveVideo = sv;
+                                return sv;
+                            }
+                        }
+                    }
+                    var frames = document.querySelectorAll('iframe');
+                    for (var j = 0; j < frames.length; j++) {
+                        try {
+                            var doc = frames[j].contentDocument || (frames[j].contentWindow && frames[j].contentWindow.document);
+                            if (doc) {
+                                var fv = doc.querySelector('video');
+                                if (fv) {
+                                    window.__clActiveVideo = fv;
+                                    return fv;
+                                }
+                            }
+                        } catch (err) {}
+                    }
+                    return null;
+                }
+
+                function getEffectiveDuration(v) {
+                    if (!v) return 0;
+                    var d = v.duration;
+                    if (d && isFinite(d) && d > 0) return d;
+                    try {
+                        if (v.seekable && v.seekable.length > 0) {
+                            var end = v.seekable.end(v.seekable.length - 1);
+                            if (end && isFinite(end) && end > 0) return end;
+                        }
+                    } catch (e) {}
+                    return 0;
+                }
+
+                window.__clBindVideoElement = function(v) {
+                    if (!v || v.__clBound) return;
+                    v.__clBound = true;
+                    window.__clActiveVideo = v;
+                    try {
+                        v.setAttribute('playsinline', 'true');
+                        v.style.width = '100vw';
+                        v.style.height = '100vh';
+                        if (!v.style.objectFit) v.style.objectFit = 'contain';
+                    } catch (e) {}
+                    if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
+                    v.addEventListener('loadedmetadata', function() {
+                        if (window.AndroidPlayer) {
+                            window.AndroidPlayer.onVideoReady();
+                            var dur = getEffectiveDuration(v);
+                            if (dur > 0) {
+                                window.AndroidPlayer.onTimeUpdate(Math.floor(v.currentTime || 0), Math.floor(dur));
+                            }
+                        }
+                    });
+                    v.addEventListener('playing', function() {
+                        if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(true);
+                    });
+                    v.addEventListener('play', function() {
+                        if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(true);
+                    });
+                    v.addEventListener('pause', function() {
+                        if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(false);
+                    });
+                    v.addEventListener('timeupdate', function() {
+                        var dur = getEffectiveDuration(v);
+                        if (window.AndroidPlayer && dur > 0) {
+                            window.AndroidPlayer.onTimeUpdate(
+                                Math.floor(v.currentTime || 0),
+                                Math.floor(dur)
+                            );
+                        }
+                    });
+                };
+
+                window.playerControl = {
+                    togglePlay: function() {
+                        var v = findActiveVideo();
+                        if (v) {
+                            window.__clBindVideoElement(v);
+                            if (v.paused) {
+                                v.play().catch(function(){});
+                                if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(true);
+                                return true;
+                            } else {
+                                v.pause();
+                                if (window.AndroidPlayer) window.AndroidPlayer.onPlayStateChanged(false);
+                                return false;
+                            }
+                        }
+                        var playBtn = document.querySelector('.jw-icon-playback, .vjs-play-control, .plyr__control[data-plyr="play"], button[aria-label*="Play"], button[aria-label*="Pause"]');
+                        if (playBtn) {
+                            playBtn.click();
+                        }
+                        return true;
+                    },
+                    seekBy: function(deltaSec) {
+                        var v = findActiveVideo();
+                        if (v) {
+                            window.__clBindVideoElement(v);
+                            var dur = getEffectiveDuration(v);
+                            var target = Math.max(0, (v.currentTime || 0) + deltaSec);
+                            if (dur > 0) target = Math.min(dur, target);
+                            v.currentTime = target;
+                            if (window.AndroidPlayer && dur > 0) {
+                                window.AndroidPlayer.onTimeUpdate(Math.floor(target), Math.floor(dur));
+                            }
+                            return Math.floor(target);
+                        }
+                        return -1;
+                    },
+                    seekTo: function(targetSec) {
+                        var v = findActiveVideo();
+                        if (v) {
+                            window.__clBindVideoElement(v);
+                            var dur = getEffectiveDuration(v);
+                            var target = Math.max(0, targetSec);
+                            if (dur > 0) target = Math.min(dur, target);
+                            v.currentTime = target;
+                            if (window.AndroidPlayer && dur > 0) {
+                                window.AndroidPlayer.onTimeUpdate(Math.floor(target), Math.floor(dur));
+                            }
+                            return Math.floor(target);
+                        }
+                        return -1;
+                    },
+                    seekToRatio: function(ratio) {
+                        var v = findActiveVideo();
+                        if (v) {
+                            window.__clBindVideoElement(v);
+                            var dur = getEffectiveDuration(v);
+                            if (dur > 0) {
+                                var target = Math.max(0, Math.min(dur, dur * ratio));
+                                v.currentTime = target;
+                                if (window.AndroidPlayer) {
+                                    window.AndroidPlayer.onTimeUpdate(Math.floor(target), Math.floor(dur));
+                                }
+                                return Math.floor(target);
+                            }
+                        }
+                        return -1;
+                    },
+                    setSpeed: function(rate) {
+                        var v = findActiveVideo();
+                        if (v) v.playbackRate = rate;
+                    },
+                    setFit: function(mode) {
+                        var v = findActiveVideo();
+                        if (v) v.style.objectFit = mode;
+                    },
+                    setMuted: function(mute) {
+                        var v = findActiveVideo();
+                        if (v) v.muted = mute;
+                    }
+                };
+
+                if (!window.__citeralokaBridgeActive) {
+                    window.__citeralokaBridgeActive = true;
+                    setInterval(function() {
+                        var v = findActiveVideo();
+                        if (v) {
+                            window.__clBindVideoElement(v);
+                            var dur = getEffectiveDuration(v);
+                            if (window.AndroidPlayer && dur > 0) {
+                                window.AndroidPlayer.onTimeUpdate(
+                                    Math.floor(v.currentTime || 0),
+                                    Math.floor(dur)
+                                );
+                            }
+                        }
+                    }, 750);
+                    setTimeout(function() {
+                        if (window.AndroidPlayer) window.AndroidPlayer.onVideoReady();
+                    }, 2200);
+                }
+            })();
+        """.trimIndent()
     }
 }

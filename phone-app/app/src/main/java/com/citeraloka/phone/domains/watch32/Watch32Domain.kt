@@ -71,7 +71,7 @@ object Watch32Domain {
             isDirectHls = embedUrl.contains(".m3u8"),
             referer = referer,
             serverName = serverName,
-            isDirectWebEmbed = false
+            isDirectWebEmbed = !embedUrl.contains(".m3u8")
         )
     }
 }
