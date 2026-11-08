@@ -2434,10 +2434,7 @@ class MainActivity : Activity() {
     @Deprecated("Deprecated in Java")
     override fun onBackPressed() {
         if (searchBarContainer.visibility == View.VISIBLE) {
-            hideKeyboard()
-            searchBarContainer.visibility = View.GONE
-            applyMinimalPillStyle(floatingSearchBtn, isSelected = false)
-            setHeaderTabActive(activeHeaderTabIndex)
+            toggleFloatingSearchBar()
             return
         }
         super.onBackPressed()
