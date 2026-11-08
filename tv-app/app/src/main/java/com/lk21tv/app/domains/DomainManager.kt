@@ -59,6 +59,16 @@ object DomainManager {
             .apply()
     }
 
+    fun getDomainStatusBadge(context: Context): String {
+        val lk = isLk21Enabled(context)
+        val w32 = isWatch32Enabled(context)
+        return when {
+            lk && w32 -> "LK21 + WATCH32"
+            w32 -> "WATCH32"
+            else -> "LK21"
+        }
+    }
+
     fun getDomainButtonLabel(context: Context): String {
         val lk = isLk21Enabled(context)
         val w32 = isWatch32Enabled(context)
