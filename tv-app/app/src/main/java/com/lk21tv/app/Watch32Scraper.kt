@@ -71,19 +71,23 @@ object Watch32Scraper {
         "cinezo.live",
         "peestream.in",
         "vidlink.pro",
-        "videasy.to",
-        "videasy.net",
-        "multiembed.mov",
-        "autoembed.cc",
+        "vixsrc.to",
+        "cinesrc.st",
         "vidfast.vc",
+        "multiembed.mov",
+        "streamingnow.mov",
+        "autoembed.co",
+        "autoembed.me",
+        "autoembed.cc",
         "2embed.cc",
         "vidsrc.to",
         "vidsrc.su",
         "vidsrc.net",
         "vidsrc.sh",
         "vidsrc.me",
-        "vixsrc.to",
-        "cinesrc.st",
+        "111movies.com",
+        "videasy.to",
+        "videasy.net",
         "vidspark.to",
         "moviesapi.to",
         "vidzee.wtf"
@@ -269,10 +273,12 @@ object Watch32Scraper {
             list.add(MirrorItem("W32 • Cinezo (No Ads)", "https://player.cinezo.live/embed/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=show&season=$season&episode=$episode"))
             list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/tv/$tmdbId/$season/$episode?autoplay=true&primaryColor=00D4B2"))
-            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/tv/$tmdbId/$season/$episode?color=00D4B2"))
-            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1&s=$season&e=$episode"))
-            list.add(MirrorItem("W32 • AutoEmbed HD", "https://player.autoembed.cc/embed/tv/$tmdbId/$season/$episode"))
+            list.add(MirrorItem("W32 • VixSrc HD", "https://vixsrc.to/tv/$tmdbId/$season/$episode"))
+            list.add(MirrorItem("W32 • CineSrc HD", "https://cinesrc.st/embed/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • VidFast HD", "https://vidfast.vc/tv/$tmdbId/$season/$episode"))
+            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1&s=$season&e=$episode"))
+            list.add(MirrorItem("W32 • AutoEmbed HD", "https://autoembed.co/tv/tmdb/$tmdbId-$season-$episode"))
+            list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/tv/$tmdbId/$season/$episode"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embedtv/$tmdbId&s=$season&e=$episode"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/tv/$tmdbId/$season/$episode"))
             if (imdbId.isNotBlank()) {
@@ -282,10 +288,12 @@ object Watch32Scraper {
             list.add(MirrorItem("W32 • Cinezo (No Ads)", "https://player.cinezo.live/embed/movie/$tmdbId"))
             list.add(MirrorItem("W32 • PeeStream (No Ads)", "https://peestream.in/embed/?tmdbId=$tmdbId&type=movie"))
             list.add(MirrorItem("W32 • VidLink HD", "https://vidlink.pro/movie/$tmdbId?autoplay=true&primaryColor=00D4B2"))
-            list.add(MirrorItem("W32 • VidEasy 4K", "https://player.videasy.net/movie/$tmdbId?color=00D4B2"))
-            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1"))
-            list.add(MirrorItem("W32 • AutoEmbed HD", "https://player.autoembed.cc/embed/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • VixSrc HD", "https://vixsrc.to/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • CineSrc HD", "https://cinesrc.st/embed/movie/$tmdbId"))
             list.add(MirrorItem("W32 • VidFast HD", "https://vidfast.vc/movie/$tmdbId"))
+            list.add(MirrorItem("W32 • MultiEmbed Fast", "https://multiembed.mov/?video_id=$tmdbId&tmdb=1"))
+            list.add(MirrorItem("W32 • AutoEmbed HD", "https://autoembed.co/movie/tmdb/$tmdbId"))
+            list.add(MirrorItem("W32 • VidSrc SU", "https://vidsrc.su/embed/movie/$tmdbId"))
             list.add(MirrorItem("W32 • 2Embed HD", "https://www.2embed.cc/embed/$tmdbId"))
             list.add(MirrorItem("W32 • VidSrc (Auto)", "https://vidsrc.to/embed/movie/$tmdbId"))
             if (imdbId.isNotBlank()) {

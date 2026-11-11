@@ -87,6 +87,13 @@ object AdBlocker {
     }
 
     private val TRUSTED_PLAYER_HOSTS = listOf(
+        "playcdn.de",
+        "videonode.de",
+        "mfw09.org",
+        "abyssplayer.com",
+        "abysscdn.com",
+        "hownetwork.xyz",
+        "emturbovid.com",
         "vidlink.pro",
         "cinesrc.st",
         "videasy.net",
@@ -94,10 +101,13 @@ object AdBlocker {
         "2embed.cc",
         "vidsrc.to",
         "vidsrc.su",
+        "vidsrc.net",
+        "vidsrc.me",
         "vixsrc.to",
         "peestream.in",
         "cinezo.live",
         "multiembed.mov",
+        "streamingnow.mov",
         "moviesapi.club",
         "vidsrc.sh",
         "vidsrc.cc",
@@ -108,6 +118,8 @@ object AdBlocker {
         "punkflix.net",
         "flikhub.net",
         "autoembed.cc",
+        "autoembed.co",
+        "autoembed.me",
         "vidfast.vc",
         "moviesapi.to"
     )

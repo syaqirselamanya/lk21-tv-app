@@ -11,8 +11,8 @@ android {
         applicationId = "com.lk21tv.app"
         minSdk = 21
         targetSdk = 34
-        versionCode = 18
-        versionName = "4.0.6"
+        versionCode = 19
+        versionName = "4.0.7"
     }
 
     signingConfigs {

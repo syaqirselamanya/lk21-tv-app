@@ -1,7 +1,7 @@
 {
-  "versionCode": 9,
-  "versionName": "1.1.7",
+  "versionCode": 10,
+  "versionName": "1.1.8",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.7.apk",
-  "changelog": "v1.1.7: Ikon Vektor Minimalis (Filter, Settings, Floating Search, Back ←, Close ✕, Play ▶), Header Pages muat penuh tanpa perlu skrol, dan Continue Watching hanya dipaparkan di dalam halaman Continue Watching."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka-phone1.1.8.apk",
+  "changelog": "v1.1.8: Logo Baharu Phone (3D Teal C Play Icon) & Tetapan Remove Cache Penuh."
 }

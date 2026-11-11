@@ -552,7 +552,22 @@ class PlayerActivity : Activity() {
 
                 currentEmbedUrl = embedToResolve
                 currentServerName = effectiveLabel
-                val resolved = DomainManager.resolveStream(embedToResolve, effectiveLabel)
+                var resolved = DomainManager.resolveStream(embedToResolve, effectiveLabel)
+
+                // Semak kesihatan strim: jika pelayan semasa tidak boleh dicapai / disekat ISP, auto-failover ke pelayan seterusnya
+                if (!DomainManager.isStreamReachable(resolved.streamUrl, resolved.referer) && mirrors.size > 1) {
+                    val startIdx = mirrors.indexOfFirst { it.embedUrl == currentEmbedUrl }.coerceAtLeast(0)
+                    for (offset in 1 until mirrors.size) {
+                        val candidate = mirrors[(startIdx + offset) % mirrors.size]
+                        val candResolved = DomainManager.resolveStream(candidate.embedUrl, candidate.name)
+                        if (DomainManager.isStreamReachable(candResolved.streamUrl, candResolved.referer)) {
+                            currentEmbedUrl = candidate.embedUrl
+                            currentServerName = candidate.name
+                            resolved = candResolved
+                            break
+                        }
+                    }
+                }
 
                 // Rekod tontonan untuk algoritma cadangan pintar
                 UserRecommendationManager.recordView(this@PlayerActivity, currentGenre, targetPageUrl, weightBoost = 3)
@@ -815,6 +830,25 @@ class PlayerActivity : Activity() {
                     return true
                 }
                 return false
+            }
+
+            override fun onReceivedError(
+                view: WebView?,
+                request: WebResourceRequest?,
+                error: WebResourceError?
+            ) {
+                super.onReceivedError(view, request, error)
+                if (request?.isForMainFrame == true) {
+                    view?.loadUrl("about:blank")
+                    mainHandler.post {
+                        val currentIndex = mirrors.indexOfFirst { it.embedUrl == currentEmbedUrl }
+                        if (currentIndex in 0 until mirrors.size - 1) {
+                            val nextMirror = mirrors[currentIndex + 1]
+                            showCenterToast("AUTO SWITCHING TO ${nextMirror.name}...")
+                            startStreamResolution(pageUrl, nextMirror.embedUrl, nextMirror.name)
+                        }
+                    }
+                }
             }
 
             override fun onPageStarted(view: WebView?, url: String?, favicon: android.graphics.Bitmap?) {

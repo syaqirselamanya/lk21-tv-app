@@ -72,6 +72,23 @@ object LK21Scraper {
     private const val DEFAULT_THUMB_BASE = "https://poster.assetsy.de/wp-content/uploads/"
     private const val DEFAULT_SEARCH_API = "https://gudangvape.com/"
 
+    val MOVIE_MIRROR_DOMAINS = listOf(
+        "https://tv12.lk21official.cc",
+        "https://tv13.lk21official.cc",
+        "https://tv.lk21online.de",
+        "https://lk21.de"
+    )
+
+    val SERIES_MIRROR_DOMAINS = listOf(
+        "https://tv1.layanfilem.my",
+        "https://tv.nontondrama.vip",
+        "https://dramamu.lk21.de",
+        "https://tv.lk21online.de"
+    )
+
+    @Volatile
+    var activeHealthyBaseUrl: String = "https://tv12.lk21official.cc"
+
     private fun fetchDoc(url: String, referer: String? = null): Document {
         val conn = Jsoup.connect(url)
             .userAgent(USER_AGENT)
@@ -126,32 +143,65 @@ object LK21Scraper {
     }
 
     fun fetchCatalog(baseUrl: String, pathOrUrl: String, page: Int = 1): List<MediaItem> {
+        val candidateBases = buildList {
+            if (baseUrl.isNotBlank()) add(baseUrl.trimEnd('/'))
+            if (activeHealthyBaseUrl.isNotBlank() && !contains(activeHealthyBaseUrl.trimEnd('/'))) {
+                add(activeHealthyBaseUrl.trimEnd('/'))
+            }
+            MOVIE_MIRROR_DOMAINS.forEach { m ->
+                val clean = m.trimEnd('/')
+                if (!contains(clean)) add(clean)
+            }
+        }
+
         if (pathOrUrl.contains("?s=")) {
             val query = pathOrUrl.substringAfter("?s=").substringBefore("&")
-            val searchItems = fetchSearchCatalog(baseUrl, query, page)
-            if (searchItems.isNotEmpty()) {
-                return searchItems
+            for (candBase in candidateBases) {
+                val searchItems = fetchSearchCatalog(candBase, query, page)
+                if (searchItems.isNotEmpty()) {
+                    activeHealthyBaseUrl = candBase
+                    return searchItems
+                }
             }
         }
 
-        val fullUrl = when {
-            pathOrUrl.startsWith("http") -> pathOrUrl
-            page <= 1 -> fixUrl(baseUrl, pathOrUrl)
-            pathOrUrl == "/" -> fixUrl(baseUrl, "/latest/page/$page")
-            else -> fixUrl(baseUrl, "${pathOrUrl.trimEnd('/')}/page/$page")
-        }
+        for (candBase in candidateBases) {
+            try {
+                val fullUrl = when {
+                    pathOrUrl.startsWith("http") -> pathOrUrl
+                    page <= 1 -> fixUrl(candBase, pathOrUrl)
+                    pathOrUrl == "/" -> fixUrl(candBase, "/latest/page/$page")
+                    else -> fixUrl(candBase, "${pathOrUrl.trimEnd('/')}/page/$page")
+                }
 
-        val doc = fetchDoc(fullUrl, baseUrl)
-        val cards = doc.select("article")
-        val list = mutableListOf<MediaItem>()
+                val doc = fetchDoc(fullUrl, candBase)
+                val effectiveBase = try {
+                    val loc = doc.location()
+                    if (loc.startsWith("http")) {
+                        val u = URL(loc)
+                        "${u.protocol}://${u.host}"
+                    } else candBase
+                } catch (_: Exception) {
+                    candBase
+                }
 
-        for (card in cards) {
-            val item = parseCard(baseUrl, card)
-            if (item != null && list.none { it.url == item.url }) {
-                list.add(item)
+                val cards = doc.select("article")
+                val list = mutableListOf<MediaItem>()
+
+                for (card in cards) {
+                    val item = parseCard(effectiveBase, card)
+                    if (item != null && list.none { it.url == item.url }) {
+                        list.add(item)
+                    }
+                }
+                if (list.isNotEmpty()) {
+                    activeHealthyBaseUrl = effectiveBase
+                    return list
+                }
+            } catch (_: Exception) {
             }
         }
-        return list
+        return emptyList()
     }
 
     private fun fetchSearchCatalog(baseUrl: String, encodedQuery: String, page: Int): List<MediaItem> {
@@ -332,16 +382,77 @@ object LK21Scraper {
 
     fun fetchDetail(baseUrl: String, pageUrl: String): MediaDetail {
         var currentUrl = pageUrl
-        var doc = fetchDoc(currentUrl, baseUrl)
+        var doc = try {
+            fetchDoc(currentUrl, baseUrl)
+        } catch (_: Exception) {
+            null
+        }
+        if (doc != null && doc.location().startsWith("http")) {
+            currentUrl = doc.location()
+        }
 
-        val redirectBtn = doc.selectFirst("a#openNow")
-        if (redirectBtn != null) {
-            val targetSeriesUrl = redirectBtn.attr("href").trim()
-            if (targetSeriesUrl.startsWith("http")) {
-                currentUrl = targetSeriesUrl
-                doc = fetchDoc(currentUrl, pageUrl)
+        val redirectBtn = doc?.selectFirst("a#openNow")
+        val dataPageSlug = doc?.selectFirst("body[data-page]")?.attr("data-page")?.trimStart('/') ?: ""
+        if (redirectBtn != null || dataPageSlug.isNotBlank() || currentUrl.contains("/nontondrama")) {
+            val targetSeriesUrl = redirectBtn?.attr("href")?.trim() ?: ""
+            val slug = dataPageSlug.ifBlank {
+                try {
+                    URL(targetSeriesUrl).path.trimStart('/')
+                } catch (_: Exception) {
+                    currentUrl.substringAfter("page=").substringBefore("&").trimStart('/')
+                }
+            }
+            val candidateUrls = buildList {
+                if (targetSeriesUrl.startsWith("http")) add(targetSeriesUrl)
+                if (slug.isNotBlank()) {
+                    SERIES_MIRROR_DOMAINS.forEach { d -> add("${d.trimEnd('/')}/$slug") }
+                }
+            }
+            for (cand in candidateUrls) {
+                try {
+                    val candDoc = fetchDoc(cand, pageUrl)
+                    val hasContent = candDoc.selectFirst("script#season-data") != null ||
+                        candDoc.select("ul.episode-list a, div.episode-list a, ul#player-list li a").isNotEmpty()
+                    if (hasContent) {
+                        doc = candDoc
+                        currentUrl = candDoc.location().takeIf { it.startsWith("http") } ?: cand
+                        break
+                    }
+                } catch (_: Exception) {
+                }
             }
         }
+
+        // Jika halaman filem/episod gagal dimuatkan atau disekat ISP pada domain semasa, cuba mirror sandaran secara automatik
+        if (doc == null || (doc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").isEmpty() &&
+                doc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe, script#season-data") == null)
+        ) {
+            val pathSlug = try {
+                URL(pageUrl).path.trimStart('/')
+            } catch (_: Exception) {
+                pageUrl.trimStart('/')
+            }
+            if (pathSlug.isNotBlank() && !pathSlug.startsWith("nontondrama")) {
+                val fallbackDomains = (MOVIE_MIRROR_DOMAINS + SERIES_MIRROR_DOMAINS).distinct()
+                for (mirrorDomain in fallbackDomains) {
+                    val altUrl = "${mirrorDomain.trimEnd('/')}/$pathSlug"
+                    if (altUrl.equals(currentUrl, ignoreCase = true)) continue
+                    try {
+                        val altDoc = fetchDoc(altUrl, mirrorDomain)
+                        val hasPlayable = altDoc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").isNotEmpty() ||
+                            altDoc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe, script#season-data") != null
+                        if (hasPlayable) {
+                            doc = altDoc
+                            currentUrl = altDoc.location().takeIf { it.startsWith("http") } ?: altUrl
+                            break
+                        }
+                    } catch (_: Exception) {
+                    }
+                }
+            }
+        }
+
+        val finalDoc = doc ?: fetchDoc(currentUrl, baseUrl)
 
         val currentOrigin = try {
             val u = URL(currentUrl)
@@ -350,7 +461,7 @@ object LK21Scraper {
             baseUrl
         }
 
-        val title = doc.selectFirst("div.movie-info h1, h1.entry-title, h1")?.text()
+        val title = finalDoc.selectFirst("div.movie-info h1, h1.entry-title, h1")?.text()
             ?.replace("Nonton series ", "", ignoreCase = true)
             ?.replace("Nonton movie ", "", ignoreCase = true)
             ?.replace("Nonton film ", "", ignoreCase = true)
@@ -359,7 +470,7 @@ object LK21Scraper {
             ?.replace("Subtitle Indonesia", "", ignoreCase = true)
             ?.trim() ?: "Title Details"
 
-        val imgEl = doc.selectFirst("div.detail picture img, div.detail img, figure.poster img, .poster img, meta[property='og:image']")
+        val imgEl = finalDoc.selectFirst("div.detail picture img, div.detail img, figure.poster img, .poster img, meta[property='og:image']")
         val posterUrl = imgEl?.let {
             if (it.tagName() == "meta") {
                 it.attr("content")
@@ -368,24 +479,24 @@ object LK21Scraper {
             }
         } ?: ""
 
-        val plot = doc.selectFirst("div.synopsis, div.meta-info .synopsis, blockquote, .desc")?.text()?.trim()
-            ?: doc.selectFirst("meta[name='description']")?.attr("content")
+        val plot = finalDoc.selectFirst("div.synopsis, div.meta-info .synopsis, blockquote, .desc")?.text()?.trim()
+            ?: finalDoc.selectFirst("meta[name='description']")?.attr("content")
             ?: "No synopsis available."
 
-        val rating = doc.selectFirst("span.rating-number")?.text()?.trim() ?: ""
-        val quality = doc.select("div.info-tag span")
+        val rating = finalDoc.selectFirst("span.rating-number")?.text()?.trim() ?: ""
+        val quality = finalDoc.select("div.info-tag span")
             .map { toEnglishBadge(it.text()) }
             .filter { it.isNotBlank() }
             .joinToString(" • ")
             .ifBlank { "HD 1080p" }
         val genre = toEnglishGenres(
-            doc.select("div.tag-list a[href*='/genre/'], .genre a").joinToString(", ") { it.text().trim() }
-                .ifBlank { doc.selectFirst("meta[itemprop='genre']")?.attr("content") ?: "" }
+            finalDoc.select("div.tag-list a[href*='/genre/'], .genre a").joinToString(", ") { it.text().trim() }
+                .ifBlank { finalDoc.selectFirst("meta[itemprop='genre']")?.attr("content") ?: "" }
         )
 
         // 1. Episode List (for TV Series)
         val episodes = mutableListOf<EpisodeItem>()
-        val seasonJsonEl = doc.selectFirst("script#season-data")
+        val seasonJsonEl = finalDoc.selectFirst("script#season-data")
         if (seasonJsonEl != null) {
             try {
                 val seasonObj = JSONObject(seasonJsonEl.data().ifBlank { seasonJsonEl.html() })
@@ -416,7 +527,7 @@ object LK21Scraper {
         }
 
         if (episodes.isEmpty()) {
-            doc.select("ul.episode-list a, div.episode-list a, ul.episodelist a").forEachIndexed { idx, el ->
+            finalDoc.select("ul.episode-list a, div.episode-list a, ul.episodelist a").forEachIndexed { idx, el ->
                 val epHref = fixUrl(currentOrigin, el.attr("href"))
                 if (epHref.isNotBlank() && !epHref.endsWith("#")) {
                     val rawLabel = el.text().trim().ifBlank { "Episode ${idx + 1}" }
@@ -440,7 +551,7 @@ object LK21Scraper {
 
         // 2. Video Server Mirrors (P2P, CAST, HYDRAX)
         val mirrors = mutableListOf<MirrorItem>()
-        doc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").forEach { el ->
+        finalDoc.select("ul#player-list li a, select#player-select option, ul#loadProviders li a").forEach { el ->
             val rawMirror = el.attr("data-url").ifBlank { el.attr("value").ifBlank { el.attr("href") } }
             if (rawMirror.isNotBlank() && !rawMirror.startsWith("#") && !rawMirror.startsWith("javascript")) {
                 val cleanMirror = fixUrl(currentOrigin, rawMirror)
@@ -454,7 +565,7 @@ object LK21Scraper {
             }
         }
 
-        val mainIframe = doc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe")
+        val mainIframe = finalDoc.selectFirst("iframe#main-player, div.main-player iframe, iframe#player-iframe")
         val rawIframeSrc = mainIframe?.let { it.attr("src").ifBlank { it.attr("data-src") } } ?: ""
         val mainEmbedUrl = if (rawIframeSrc.isNotBlank()) {
             fixUrl(currentOrigin, rawIframeSrc)

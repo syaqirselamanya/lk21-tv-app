@@ -1,7 +1,7 @@
 {
-  "versionCode": 18,
-  "versionName": "4.0.6",
+  "versionCode": 19,
+  "versionName": "4.0.7",
   "activeDomain": "https://tv12.lk21official.cc",
-  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.6.apk",
-  "changelog": "v4.0.6: Ikon Vektor Minimalis (Filter, Settings, Search, Back ←, Close ✕, Play ▶), Header Pages muat penuh tanpa perlu skrol, dan Continue Watching hanya dipaparkan di dalam halaman Continue Watching."
+  "apkUrl": "https://github.com/syaqirselamanya/lk21-tv-app/releases/download/latest/citeraloka4.0.7.apk",
+  "changelog": "v4.0.7: Logo Baharu TV (Tanpa Movie/Series/More), Auto-Heal Domain & Semakan Kesihatan Pelayan (TV), serta Tetapan Remove Cache Penuh."
 }

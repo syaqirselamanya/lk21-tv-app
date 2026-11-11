@@ -24,12 +24,17 @@ import android.view.ViewGroup
 import android.view.Window
 import android.view.inputmethod.EditorInfo
 import android.view.inputmethod.InputMethodManager
+import android.webkit.CookieManager
+import android.webkit.WebStorage
+import android.webkit.WebView
 import android.widget.*
 import com.citeraloka.phone.domains.DomainManager
 import com.citeraloka.phone.domains.DualDomainMediaResult
+import java.io.File
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
+import java.util.Locale
 import java.util.concurrent.Callable
 import java.util.concurrent.Executors
 
@@ -948,10 +953,14 @@ class MainActivity : Activity() {
         }
         root.addView(clearHistoryBtn)
 
-        val clearCacheBtn = createTouchButton("CLEAR IMAGE CACHE", isPrimary = false) {
-            imageCache.evictAll()
-            Toast.makeText(this, "Image cache cleared", Toast.LENGTH_SHORT).show()
+        lateinit var clearCacheBtn: Button
+        clearCacheBtn = createTouchButton("REMOVE CACHE (${getFormattedCacheSize()})", isPrimary = false) {
+            val freedText = removeAllAppCache()
+            clearCacheBtn.text = "REMOVE CACHE (0.0 MB)"
+            UiIcons.attachIcon(clearCacheBtn, UiIcons.Type.TRASH, sizeDp = 14, paddingDp = 6)
+            Toast.makeText(this, "Cache removed ($freedText freed)", Toast.LENGTH_SHORT).show()
         }.apply {
+            UiIcons.attachIcon(this, UiIcons.Type.TRASH, sizeDp = 14, paddingDp = 6)
             layoutParams = LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
@@ -2427,6 +2436,74 @@ class MainActivity : Activity() {
             putStringArrayListExtra("MIRROR_URLS", mirrorUrls)
         }
         startActivity(intent)
+    }
+
+    private fun getDirSize(dir: File?): Long {
+        if (dir == null || !dir.exists()) return 0L
+        if (dir.isFile) return dir.length()
+        var total = 0L
+        dir.listFiles()?.forEach { child ->
+            total += getDirSize(child)
+        }
+        return total
+    }
+
+    private fun deleteDirContents(dir: File?) {
+        if (dir == null || !dir.exists()) return
+        dir.listFiles()?.forEach { child ->
+            if (child.isDirectory) {
+                deleteDirContents(child)
+            }
+            try {
+                child.delete()
+            } catch (_: Exception) {
+            }
+        }
+    }
+
+    private fun getFormattedCacheSize(): String {
+        val memBytes = imageCache.size().toLong()
+        val diskBytes = getDirSize(cacheDir) +
+            getDirSize(codeCacheDir) +
+            getDirSize(externalCacheDir) +
+            getDirSize(File(applicationInfo.dataDir, "app_webview/Cache")) +
+            getDirSize(File(applicationInfo.dataDir, "app_webview/GPUCache"))
+        val totalMb = (memBytes + diskBytes).toDouble() / (1024.0 * 1024.0)
+        return String.format(Locale.US, "%.1f MB", totalMb.coerceAtLeast(0.1))
+    }
+
+    private fun removeAllAppCache(): String {
+        val beforeLabel = getFormattedCacheSize()
+        try {
+            imageCache.evictAll()
+        } catch (_: Exception) {
+        }
+        try {
+            WebStorage.getInstance().deleteAllData()
+        } catch (_: Exception) {
+        }
+        try {
+            CookieManager.getInstance().removeAllCookies(null)
+            CookieManager.getInstance().flush()
+        } catch (_: Exception) {
+        }
+        try {
+            WebView(this).apply {
+                clearCache(true)
+                clearHistory()
+                clearFormData()
+                destroy()
+            }
+        } catch (_: Exception) {
+        }
+        executor.execute {
+            deleteDirContents(cacheDir)
+            deleteDirContents(codeCacheDir)
+            deleteDirContents(externalCacheDir)
+            deleteDirContents(File(applicationInfo.dataDir, "app_webview/Cache"))
+            deleteDirContents(File(applicationInfo.dataDir, "app_webview/GPUCache"))
+        }
+        return beforeLabel
     }
 
     private fun loadImageAsync(

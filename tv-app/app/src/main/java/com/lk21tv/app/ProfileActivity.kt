@@ -67,11 +67,11 @@ class ProfileActivity : Activity() {
             })
         }
         brandRow.addView(TextView(this).apply {
-            text = "CITERALOKA"
-            setTextColor(Color.parseColor(MainActivity.ACCENT_TEAL))
-            setTextSize(TypedValue.COMPLEX_UNIT_SP, 22f)
+            text = "Citeraloka"
+            setTextColor(Color.parseColor(MainActivity.TEXT_PRIMARY))
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 24f)
             typeface = Typeface.DEFAULT_BOLD
-            letterSpacing = 0.14f
+            letterSpacing = 0.03f
         })
         root.addView(brandRow)
 
